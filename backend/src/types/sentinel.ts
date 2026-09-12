@@ -192,8 +192,22 @@ export interface SystemStatusResponse {
   blast_radius?: BlastRadiusAnalysis;
   recovery_plan?: RecoveryStrategyPlan;
   latest_policy_decision?: PolicyDecision;
+  latest_execution_receipt?: ExecutionReceipt;
   ai_reasoning: AIReasoningItem[];
   incident_logs: IncidentLogItem[];
   pending_approvals: PendingApproval[];
   policies: GuardrailPolicies;
+}
+
+export interface ExecutionReceipt {
+  execution_id: string;
+  action_name: string;
+  tool_name: string;
+  kwargs: Record<string, unknown>;
+  policy_decision: "ALLOW" | "HUMAN_APPROVAL_REQUIRED" | "BLOCKED";
+  effective_risk: string;
+  execution_status: "SUCCESS" | "FAILED" | "BLOCKED" | "PENDING_APPROVAL";
+  execution_result: string;
+  state_changed: boolean;
+  executed_at: string;
 }

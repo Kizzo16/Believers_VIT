@@ -10,6 +10,7 @@ import { investigationRoutes } from "./routes/investigation.routes";
 import { blastRadiusRoutes } from "./routes/blast-radius.routes";
 import { recoveryRoutes } from "./routes/recovery.routes";
 import { policyRoutes } from "./routes/policy.routes";
+import { executorRoutes } from "./routes/executor.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -35,6 +36,7 @@ export function buildApp() {
   void app.register(blastRadiusRoutes);
   void app.register(recoveryRoutes);
   void app.register(policyRoutes);
+  void app.register(executorRoutes);
 
 
 

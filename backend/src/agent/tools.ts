@@ -116,6 +116,25 @@ export const SENTINEL_TOOL_DEFINITIONS: Record<string, SentinelToolDefinition> =
       additionalProperties: false,
     },
   },
+  rollback_configuration: {
+    name: "rollback_configuration",
+    description: "Rollback configuration parameters and reset failure states for a monitored service.",
+    isExecutable: true,
+    risk: "MEDIUM",
+    parameters: {
+      type: "object",
+      properties: {
+        service: {
+          type: "string",
+          description: "Service to rollback configuration for ('dummy-api' or 'sentinel-db')",
+          enum: ["dummy-api", "sentinel-db"],
+          default: "dummy-api",
+        },
+      },
+      required: ["service"],
+      additionalProperties: false,
+    },
+  },
   rollback_service: {
     name: "rollback_service",
     description: "Rollback a deployed service container to the previous known stable version.",
@@ -218,7 +237,36 @@ export const restartServiceTool: ToolFunction = async (kwargs: Record<string, un
     : typeof kwargs.container_name === "string"
     ? kwargs.container_name
     : "sentinel-db";
-  return ContainerService.restartContainer(service);
+
+  const result = await ContainerService.restartContainer(service);
+
+  // Real state mutation in controlled demo environment
+  if (service === "sentinel-db") {
+    incidentService.setDatabaseStatus("UP");
+    incidentService.setSystemHealth("RECOVERING");
+  } else if (service === "dummy-api") {
+    incidentService.setDummyApiStatus("UP");
+    incidentService.setSystemHealth("RECOVERING");
+  }
+
+  const isRunning = await ContainerService.checkContainerRunning(service);
+  if (isRunning) {
+    incidentService.clearIncidents();
+    return `${result} Service '${service}' is RUNNING and healthy. Incident state resolved.`;
+  }
+  return `${result} Service '${service}' container process dispatched.`;
+};
+
+export const rollbackConfigurationTool: ToolFunction = async (kwargs: Record<string, unknown>): Promise<string> => {
+  const service = typeof kwargs.service === "string" ? kwargs.service : "dummy-api";
+
+  // Real state mutation in controlled demo environment
+  incidentService.clearIncidents();
+  incidentService.setSystemHealth("HEALTHY");
+  incidentService.setDatabaseStatus("UP");
+  incidentService.setDummyApiStatus("UP");
+
+  return `Configuration rollback for '${service}' executed successfully. Known stable baseline parameters restored. State: HEALTHY.`;
 };
 
 export const verifyRecoveryTool: ToolFunction = async (kwargs: Record<string, unknown>): Promise<string> => {
@@ -262,6 +310,8 @@ export const TOOLS: Record<string, ToolFunction> = {
   check_database: checkDatabaseTool,
   check_service: checkServiceTool,
   restart_service: restartServiceTool,
+  rollback_configuration: rollbackConfigurationTool,
+  rollback_service: rollbackConfigurationTool,
   verify_recovery: verifyRecoveryTool,
   // Backward compatibility aliases
   get_docker_logs: getServiceLogsTool,

@@ -6,6 +6,7 @@ import { ActiveIncident } from "@/components/sentinel/ActiveIncident";
 import { EvidencePanel } from "@/components/sentinel/EvidencePanel";
 import { BlastRadiusPanel } from "@/components/sentinel/BlastRadiusPanel";
 import { RecoveryPlannerPanel } from "@/components/sentinel/RecoveryPlannerPanel";
+import { ControlledExecutorPanel } from "@/components/sentinel/ControlledExecutorPanel";
 import { ShieldAlert, Activity, CheckCircle, Clock } from "lucide-react";
 
 export default function IncidentsPage() {
@@ -58,6 +59,9 @@ export default function IncidentsPage() {
 
       {/* Module 7: Recovery Strategy Planner Panel */}
       <RecoveryPlannerPanel />
+
+      {/* Module 9: Controlled Action Executor Panel */}
+      <ControlledExecutorPanel />
 
       {/* Incident Evidence & Diagnostic History (When Outage Active) */}
       {activeIncident && (
