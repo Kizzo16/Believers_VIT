@@ -5,6 +5,8 @@ import { loadPolicies } from "../config/policies";
 import { incidentService } from "../services/incident.service";
 import { TOOL_SCHEMAS, ToolName } from "./schemas";
 import { emitSentinelEvent } from "../realtime/socket";
+import { ApprovalRepository } from "../repositories/approval.repository";
+import { safePersist } from "../utils/persistence";
 
 export async function executeToolWithGuardrail(
   toolName: string,
@@ -90,6 +92,19 @@ export async function executeToolWithGuardrail(
     };
 
     incidentService.addPendingApproval(approvalReq);
+
+    // STEP 5: Persist pending approval to PostgreSQL
+    await safePersist("ApprovalRepository", "create", approvalId, () =>
+      ApprovalRepository.create({
+        id: approvalId,
+        incident_id: incidentId,
+        tool_name: toolName,
+        kwargs: validatedKwargs,
+        risk,
+        status: "PENDING",
+        requested_at: approvalReq.requested_at,
+      })
+    );
 
     return {
       status: "Requires Human Approval",

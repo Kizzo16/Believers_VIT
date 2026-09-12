@@ -8,9 +8,11 @@ export const DEFAULT_POLICIES: GuardrailPolicies = {
   // Official tools
   get_system_status: { risk: "LOW", auto_execute: true },
   get_service_logs: { risk: "LOW", auto_execute: true },
+  get_metrics: { risk: "LOW", auto_execute: true },
   check_database: { risk: "LOW", auto_execute: true },
   check_service: { risk: "LOW", auto_execute: true },
   restart_service: { risk: "LOW", auto_execute: true },
+  rollback_service: { risk: "HIGH", auto_execute: false },
   verify_recovery: { risk: "LOW", auto_execute: true },
   // Backward compatibility aliases
   get_docker_logs: { risk: "LOW", auto_execute: true },

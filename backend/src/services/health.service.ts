@@ -4,6 +4,8 @@ import { incidentService } from "./incident.service";
 import { callLlmSreAgent } from "../agent/agent";
 import { logger } from "../utils/logger";
 import { emitSentinelEvent } from "../realtime/socket";
+import { IncidentRepository } from "../repositories/incident.repository";
+import { safePersist } from "../utils/persistence";
 
 export class HealthMonitorService {
   private timer: NodeJS.Timeout | null = null;
@@ -86,8 +88,20 @@ export class HealthMonitorService {
           incidentService.setActiveIncident(false);
           incidentService.setSystemHealth("HEALTHY");
 
+          // Asynchronous write-through to PostgreSQL
+          void safePersist("IncidentRepository", "update", currentIncident.id, () =>
+            IncidentRepository.update(currentIncident.id, {
+              status: "RESOLVED",
+              resolved_at: currentIncident.resolved_at,
+              recovery_time: currentIncident.recovery_time,
+            })
+          );
+
           incidentService.logEvent(`🎉 ${recoveryStr}`);
-          incidentService.addAiReasoning(recoveryStr, "verify_health", "200 OK");
+          incidentService.addAiReasoning(recoveryStr, "verify_health", "200 OK", {
+            incident_id: currentIncident.id,
+            source: "health_monitor",
+          });
           emitSentinelEvent("service.recovered", { recovery_time: `${elapsedSec}s` });
         }
       } else if (statusCode >= 500) {
@@ -95,7 +109,6 @@ export class HealthMonitorService {
         incidentService.setDatabaseStatus("DOWN");
 
         if (!incidentService.isActiveIncident()) {
-          incidentService.setActiveIncident(true);
           const incidentId = `INC-${Math.floor(Date.now() / 1000)}`;
           const incidentData = {
             id: incidentId,
@@ -103,6 +116,19 @@ export class HealthMonitorService {
             error: respText,
             status: "INVESTIGATING",
           };
+
+          // Establish durable incident record in DB first
+          await safePersist("IncidentRepository", "create", incidentId, () =>
+            IncidentRepository.create({
+              id: incidentId,
+              status: incidentData.status,
+              detected_at: incidentData.detected_at,
+              service: "dummy-api",
+              error: incidentData.error,
+            })
+          );
+
+          incidentService.setActiveIncident(true);
           incidentService.setCurrentIncident(incidentData);
           incidentService.logEvent(
             `⚠️ Health check returned HTTP ${statusCode} from ${env.DUMMY_API_URL}: ${respText}`,
@@ -124,7 +150,6 @@ export class HealthMonitorService {
       incidentService.setDatabaseStatus(dbRunning ? "UP" : "DOWN");
 
       if (!incidentService.isActiveIncident()) {
-        incidentService.setActiveIncident(true);
         const incidentId = `INC-${Math.floor(Date.now() / 1000)}`;
         const errDetail = exc instanceof Error ? exc.message : String(exc);
         const incidentData = {
@@ -133,6 +158,19 @@ export class HealthMonitorService {
           error: `Service unreachable: ${errDetail}`,
           status: "INVESTIGATING",
         };
+
+        // Establish durable incident record in DB first
+        await safePersist("IncidentRepository", "create", incidentId, () =>
+          IncidentRepository.create({
+            id: incidentId,
+            status: incidentData.status,
+            detected_at: incidentData.detected_at,
+            service: "dummy-api",
+            error: incidentData.error,
+          })
+        );
+
+        incidentService.setActiveIncident(true);
         incidentService.setCurrentIncident(incidentData);
         incidentService.logEvent(`⚠️ Health ping connection failed: ${errDetail}`, "ERROR");
 

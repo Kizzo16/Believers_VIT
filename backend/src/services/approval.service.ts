@@ -3,6 +3,10 @@ import { incidentService } from "./incident.service";
 import { TOOLS } from "../agent/tools";
 import { loadPolicies } from "../config/policies";
 import { emitSentinelEvent } from "../realtime/socket";
+import { verifyIncidentRecovery } from "../agent/agent";
+import { ApprovalRepository } from "../repositories/approval.repository";
+import { AuditRepository } from "../repositories/audit.repository";
+import { safePersist } from "../utils/persistence";
 
 export interface ApprovalResult {
   status: "EXECUTED" | "REJECTED";
@@ -34,7 +38,7 @@ export class ApprovalService {
     // Validate state: prevent approving already resolved requests (anti-replay)
     if (targetRecord.status !== "PENDING") {
       const msg = `Approval request '${approvalId}' is already resolved with status '${targetRecord.status}'`;
-      incidentService.logEvent(`⛔ [Invalid State Transition] {msg}`, "WARNING");
+      incidentService.logEvent(`⛔ [Invalid State Transition] ${msg}`, "WARNING");
       const err = new Error(msg);
       (err as { statusCode?: number }).statusCode = 409;
       throw err;
@@ -83,6 +87,19 @@ export class ApprovalService {
         targetRecord.error = errorMsg;
       }
 
+      // STEP 6: Persist approval decision to PostgreSQL
+      await safePersist("ApprovalRepository", "updateDecision", targetRecord.id, () =>
+        ApprovalRepository.updateDecision(targetRecord.id, {
+          decision: "APPROVED",
+          status: "APPROVED",
+          decided_at: timestamp,
+          decided_by: "operator",
+          execution_result: targetRecord.execution_result,
+          success: targetRecord.success,
+          error: targetRecord.error,
+        })
+      );
+
       const auditEvent: AuditEvent = {
         approval_id: targetRecord.id,
         incident_id: targetRecord.incident_id,
@@ -94,6 +111,21 @@ export class ApprovalService {
         error: targetRecord.error ?? null,
       };
 
+      // STEP 7: Persist immutable audit event to PostgreSQL
+      await safePersist("AuditRepository", "append", targetRecord.id, () =>
+        AuditRepository.append({
+          approval_id: targetRecord.id,
+          incident_id: targetRecord.incident_id,
+          timestamp,
+          tool_name: toolName,
+          operator_decision: "APPROVE",
+          operator_id: "operator",
+          execution_result: targetRecord.execution_result,
+          success: targetRecord.success ?? false,
+          error: targetRecord.error ?? null,
+        })
+      );
+
       incidentService.logEvent(
         `🛡️ [AUDIT EVENT] Operator APPROVED action '${toolName}' (Approval ID: ${targetRecord.id}). Execution Result: ${String(
           targetRecord.execution_result
@@ -104,10 +136,38 @@ export class ApprovalService {
       incidentService.addAiReasoning(
         `Operator OVERRIDE APPROVED for '${toolName}'. Action executed safely.`,
         `${toolName}(**args)`,
-        String(targetRecord.execution_result)
+        String(targetRecord.execution_result),
+        {
+          incident_id: targetRecord.incident_id,
+          source: "approval_service",
+        }
       );
 
       emitSentinelEvent("approval.resolved", { targetRecord, audit: auditEvent });
+
+      // Step 2F: Explicit closed-loop recovery verification after approved dangerous remediation
+      if (targetRecord.success) {
+        const currentIncident = incidentService.getCurrentIncident();
+        const targetIncident =
+          currentIncident && (!targetRecord.incident_id || currentIncident.id === targetRecord.incident_id)
+            ? currentIncident
+            : null;
+
+        if (targetIncident) {
+          const targetService =
+            (originalKwargs.service as string) ||
+            (originalKwargs.container_name as string) ||
+            "dummy-api";
+          const serviceToVerify =
+            targetService === "sentinel-db" || targetService === "dummy-api"
+              ? targetService
+              : "dummy-api";
+
+          void verifyIncidentRecovery(targetIncident, serviceToVerify).catch((err) => {
+            incidentService.logEvent(`⚠️ [Post-Approval Verification Error] ${String(err)}`, "ERROR");
+          });
+        }
+      }
 
       return {
         status: "EXECUTED",
@@ -125,6 +185,19 @@ export class ApprovalService {
       targetRecord.success = true;
       targetRecord.error = null;
 
+      // STEP 6: Persist approval decision to PostgreSQL
+      await safePersist("ApprovalRepository", "updateDecision", targetRecord.id, () =>
+        ApprovalRepository.updateDecision(targetRecord.id, {
+          decision: "REJECTED",
+          status: "REJECTED",
+          decided_at: timestamp,
+          decided_by: "operator",
+          execution_result: "NOT_EXECUTED",
+          success: true,
+          error: null,
+        })
+      );
+
       const auditEvent: AuditEvent = {
         approval_id: targetRecord.id,
         incident_id: targetRecord.incident_id,
@@ -136,6 +209,21 @@ export class ApprovalService {
         error: null,
       };
 
+      // STEP 7: Persist immutable audit event to PostgreSQL
+      await safePersist("AuditRepository", "append", targetRecord.id, () =>
+        AuditRepository.append({
+          approval_id: targetRecord.id,
+          incident_id: targetRecord.incident_id,
+          timestamp,
+          tool_name: toolName,
+          operator_decision: "REJECT",
+          operator_id: "operator",
+          execution_result: "NOT_EXECUTED",
+          success: true,
+          error: null,
+        })
+      );
+
       incidentService.logEvent(
         `🛡️ [AUDIT EVENT] Operator REJECTED action '${toolName}' (Approval ID: ${targetRecord.id}). Action NOT executed. System secured.`,
         "WARNING"
@@ -144,7 +232,11 @@ export class ApprovalService {
       incidentService.addAiReasoning(
         `Operator REJECTED override for '${toolName}'. Dangerous action was NOT executed. System secured.`,
         "guardrail_rejection",
-        "BLOCKED (SYSTEM SECURED)"
+        "BLOCKED (SYSTEM SECURED)",
+        {
+          incident_id: targetRecord.incident_id,
+          source: "approval_service",
+        }
       );
 
       emitSentinelEvent("approval.resolved", { targetRecord, audit: auditEvent });

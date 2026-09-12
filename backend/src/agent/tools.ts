@@ -44,18 +44,12 @@ export const SENTINEL_TOOL_DEFINITIONS: Record<string, SentinelToolDefinition> =
   },
   get_metrics: {
     name: "get_metrics",
-    description: "Fetch real-time latency, throughput, error rates, and CPU/memory utilization metrics.",
-    isExecutable: false, // Contract defined internally, not exposed to live model yet
+    description: "Return a real-time operational metrics snapshot for the Sentinel-monitored environment: system health state, service/database up/down status, last API probe time and HTTP status code, active incident flag, and recent observation counts. This tool is read-only and performs no remediation.",
+    isExecutable: true,
     risk: "LOW",
     parameters: {
       type: "object",
-      properties: {
-        service: {
-          type: "string",
-          description: "Name of the target service to inspect metrics for",
-        },
-      },
-      required: ["service"],
+      properties: {},
       additionalProperties: false,
     },
   },
@@ -118,15 +112,16 @@ export const SENTINEL_TOOL_DEFINITIONS: Record<string, SentinelToolDefinition> =
   },
   rollback_service: {
     name: "rollback_service",
-    description: "Rollback a deployed service container to the previous known stable version.",
-    isExecutable: false, // Contract defined internally, not exposed to live model yet
+    description: "Rollback a containerized service to its last known stable state. HIGH-risk remediation action — requires human approval. Not exposed to AI investigation tools; only reachable via structured RCA proposed_action.",
+    isExecutable: false, // Intentionally excluded from LIVE_OPENAI_TOOLS — model cannot select this during Turn 1
     risk: "HIGH",
     parameters: {
       type: "object",
       properties: {
         service: {
           type: "string",
-          description: "Service name to rollback",
+          description: "Allowlisted service to rollback ('dummy-api' or 'sentinel-db')",
+          enum: ["sentinel-db", "dummy-api"],
         },
       },
       required: ["service"],
@@ -135,7 +130,7 @@ export const SENTINEL_TOOL_DEFINITIONS: Record<string, SentinelToolDefinition> =
   },
   verify_recovery: {
     name: "verify_recovery",
-    description: "Verify that all affected services and databases have recovered to HEALTHY state.",
+    description: "Verify that all affected services and databases have recovered to HEALTHY state using real runtime probes.",
     isExecutable: true,
     risk: "LOW",
     parameters: {
@@ -145,7 +140,6 @@ export const SENTINEL_TOOL_DEFINITIONS: Record<string, SentinelToolDefinition> =
           type: "string",
           description: "Service to verify recovery for ('dummy-api' or 'sentinel-db')",
           enum: ["dummy-api", "sentinel-db"],
-          default: "dummy-api",
         },
       },
       required: ["service"],
@@ -173,6 +167,51 @@ export const getSystemStatusTool: ToolFunction = async (_kwargs: Record<string, 
     incident_id: currentIncident ? currentIncident.id : null,
     incident_error: currentIncident ? currentIncident.error : null,
   });
+};
+
+export const getMetricsTool: ToolFunction = async (_kwargs: Record<string, unknown>): Promise<string> => {
+  const health = incidentService.getSystemHealth();
+  const dbStatus = incidentService.getDatabaseStatus();
+  const apiStatus = incidentService.getDummyApiStatus();
+  const activeIncident = incidentService.isActiveIncident();
+  const currentIncident = incidentService.getCurrentIncident();
+  const lastPingTime = incidentService.getLastPingTime();
+  const lastPingCode = incidentService.getLastPingCode();
+  const recentLogs = incidentService.incidentLogs.toArray();
+  const recentErrors = recentLogs.filter((l) => l.level === "ERROR");
+  const recentWarnings = recentLogs.filter((l) => l.level === "WARNING");
+  const now = new Date();
+  const lastPingAgeMs = lastPingTime ? now.getTime() - new Date(lastPingTime).getTime() : null;
+
+  const metrics = {
+    observed_at: now.toISOString(),
+    system: {
+      health: health,
+      active_incident: activeIncident,
+      incident_id: currentIncident?.id ?? null,
+      incident_error: currentIncident?.error ?? null,
+      incident_status: currentIncident?.status ?? null,
+    },
+    services: {
+      dummy_api: {
+        status: apiStatus,
+        last_probe_time: lastPingTime,
+        last_probe_http_code: lastPingCode,
+        last_probe_age_ms: lastPingAgeMs,
+      },
+      sentinel_db: {
+        status: dbStatus,
+      },
+    },
+    observations: {
+      total_log_entries: recentLogs.length,
+      error_count: recentErrors.length,
+      warning_count: recentWarnings.length,
+      recent_errors: recentErrors.slice(-3).map((l) => ({ timestamp: l.timestamp, message: l.message })),
+    },
+  };
+
+  return JSON.stringify(metrics, null, 2);
 };
 
 export const getServiceLogsTool: ToolFunction = async (kwargs: Record<string, unknown>): Promise<string> => {
@@ -223,26 +262,55 @@ export const restartServiceTool: ToolFunction = async (kwargs: Record<string, un
 
 export const verifyRecoveryTool: ToolFunction = async (kwargs: Record<string, unknown>): Promise<string> => {
   const service = typeof kwargs.service === "string" ? kwargs.service : "dummy-api";
-  const dbRunning = await ContainerService.checkContainerRunning("sentinel-db");
 
-  let apiHealthy = false;
+  if (service === "sentinel-db") {
+    const isRunning = await ContainerService.checkContainerRunning("sentinel-db");
+    if (isRunning) {
+      return JSON.stringify({
+        verified: true,
+        service: "sentinel-db",
+        status: "UP",
+        evidence: ["Database container 'sentinel-db' is RUNNING and operational"],
+      });
+    }
+    return JSON.stringify({
+      verified: false,
+      service: "sentinel-db",
+      status: "DOWN",
+      evidence: ["Database container 'sentinel-db' is STOPPED or UNREACHABLE"],
+    });
+  }
+
+  // service === "dummy-api" (or default fallback)
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
     const resp = await fetch(env.DUMMY_API_URL, { signal: controller.signal });
     clearTimeout(timeoutId);
-    apiHealthy = resp.ok;
-  } catch {
-    apiHealthy = false;
-  }
 
-  if (dbRunning && apiHealthy) {
-    return `Recovery verified: sentinel-db is RUNNING and ${service} is responding HTTP 200 OK.`;
+    if (resp.status === 200) {
+      return JSON.stringify({
+        verified: true,
+        service: "dummy-api",
+        status: "UP",
+        evidence: ["health probe returned HTTP 200 OK"],
+      });
+    }
+    return JSON.stringify({
+      verified: false,
+      service: "dummy-api",
+      status: "DOWN",
+      evidence: [`health probe returned HTTP ${resp.status} ${resp.statusText}`],
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return JSON.stringify({
+      verified: false,
+      service: "dummy-api",
+      status: "DOWN",
+      evidence: [`health probe connection failed: ${msg}`],
+    });
   }
-  if (!dbRunning) {
-    return `Recovery verification FAILED: sentinel-db is not running.`;
-  }
-  return `Recovery verification FAILED: ${service} is not yet responding with HTTP 200.`;
 };
 
 // Legacy compatibility tool for critical action testing
@@ -252,17 +320,100 @@ export const deleteDatabase: ToolFunction = async (kwargs: Record<string, unknow
 };
 
 // ============================================================================
+// rollback_service: safe bounded rollback abstraction
+//
+// Design decision: Neither sentinel-db nor dummy-api has a versioned image
+// history in this demo environment.
+//
+//   sentinel-db  — uses postgres:16-alpine (fixed tag). The "previous stable
+//                  state" for a database service is a container re-init from
+//                  the same image. We perform docker rm + docker run (via
+//                  compose re-up) only if the container is currently stopped.
+//                  This restores the last persisted volume state, which is the
+//                  only honest rollback target available.
+//
+//   dummy-api    — built locally from ./dummy-api/Dockerfile with no tagged
+//                  image history. No rollback target exists. Returns no-target
+//                  result without performing any destructive action.
+//
+// This implementation is TRUTHFUL: it never claims success when no genuine
+// rollback target or mechanism exists.
+// ============================================================================
+export const rollbackServiceTool: ToolFunction = async (kwargs: Record<string, unknown>): Promise<string> => {
+  const service = typeof kwargs.service === "string" ? kwargs.service : "";
+
+  if (service === "dummy-api") {
+    // dummy-api is a locally-built image with no version history.
+    // Honest response: no rollback target available.
+    return JSON.stringify({
+      success: false,
+      service: "dummy-api",
+      reason: "No rollback target is available for dummy-api in the current demo environment. The service is built from a local Dockerfile with no previous image version stored. Use restart_service to recover from a crash.",
+      action_taken: null,
+    });
+  }
+
+  if (service === "sentinel-db") {
+    // sentinel-db uses postgres:16-alpine. The rollback target in this
+    // environment is the same image + existing volume data (last persisted
+    // state). We can only attempt this if the container is currently DOWN.
+    const isRunning = await ContainerService.checkContainerRunning("sentinel-db");
+
+    if (isRunning) {
+      return JSON.stringify({
+        success: false,
+        service: "sentinel-db",
+        reason: "Rollback is only applicable when sentinel-db is in a failed/stopped state. The container is currently RUNNING. Use verify_recovery to confirm health, or restart_service if a crash occurs.",
+        action_taken: null,
+      });
+    }
+
+    // Container is stopped — attempt restart from existing image (honest
+    // rollback to last persisted volume state: the only valid target).
+    try {
+      const restartResult = await ContainerService.restartContainer("sentinel-db");
+      return JSON.stringify({
+        success: true,
+        service: "sentinel-db",
+        reason: "Rolled back sentinel-db to last persisted state using existing postgres:16-alpine image and volume data. This is the only rollback target available in the current demo environment.",
+        action_taken: `container-reinit: ${restartResult}`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return JSON.stringify({
+        success: false,
+        service: "sentinel-db",
+        reason: `Rollback attempt failed during container restart: ${msg}`,
+        action_taken: null,
+      });
+    }
+  }
+
+  // Allowlist enforced by Zod schema — this path should never be reached
+  return JSON.stringify({
+    success: false,
+    service,
+    reason: `Service '${service}' is not in the Sentinel rollback allowlist.`,
+    action_taken: null,
+  });
+};
+
+
+// ============================================================================
 // 3. TOOL REGISTRY (OFFICIAL CONTRACTS + BACKWARD-COMPATIBILITY ALIASES)
 // ============================================================================
 
 export const TOOLS: Record<string, ToolFunction> = {
-  // Official tools
+  // Official investigation tools (auto-executed, LOW risk)
   get_system_status: getSystemStatusTool,
   get_service_logs: getServiceLogsTool,
+  get_metrics: getMetricsTool,
   check_database: checkDatabaseTool,
   check_service: checkServiceTool,
-  restart_service: restartServiceTool,
   verify_recovery: verifyRecoveryTool,
+  // Official remediation tools
+  restart_service: restartServiceTool,
+  rollback_service: rollbackServiceTool, // HIGH risk: requires human approval via guardrail
   // Backward compatibility aliases
   get_docker_logs: getServiceLogsTool,
   restart_container: restartServiceTool,

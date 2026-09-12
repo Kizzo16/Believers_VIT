@@ -7,6 +7,10 @@
     "risk": "LOW",
     "auto_execute": true
   },
+  "get_metrics": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
   "check_database": {
     "risk": "LOW",
     "auto_execute": true
@@ -18,6 +22,10 @@
   "restart_service": {
     "risk": "LOW",
     "auto_execute": true
+  },
+  "rollback_service": {
+    "risk": "HIGH",
+    "auto_execute": false
   },
   "verify_recovery": {
     "risk": "LOW",

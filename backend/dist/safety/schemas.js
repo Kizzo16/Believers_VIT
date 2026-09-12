@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TOOL_SCHEMAS = exports.StructuredRcaSchema = exports.ProposedActionSchema = exports.ALL_EXECUTABLE_TOOLS = exports.OFFICIAL_TOOL_NAMES = exports.PolicyUpdateSchema = exports.ApprovalRequestSchema = exports.DeleteDatabaseArgsSchema = exports.RestartContainerArgsSchema = exports.GetDockerLogsArgsSchema = exports.VerifyRecoveryArgsSchema = exports.GetSystemStatusArgsSchema = exports.CheckServiceArgsSchema = exports.CheckDatabaseArgsSchema = exports.RestartServiceArgsSchema = exports.GetServiceLogsArgsSchema = exports.ALLOWED_SERVICES = exports.ALLOWED_CONTAINERS = void 0;
+exports.TOOL_SCHEMAS = exports.StructuredRcaSchema = exports.ProposedActionSchema = exports.ALL_EXECUTABLE_TOOLS = exports.OFFICIAL_TOOL_NAMES = exports.PolicyUpdateSchema = exports.ApprovalRequestSchema = exports.DeleteDatabaseArgsSchema = exports.RestartContainerArgsSchema = exports.GetDockerLogsArgsSchema = exports.RollbackServiceArgsSchema = exports.VerifyRecoveryArgsSchema = exports.GetMetricsArgsSchema = exports.GetSystemStatusArgsSchema = exports.CheckServiceArgsSchema = exports.CheckDatabaseArgsSchema = exports.RestartServiceArgsSchema = exports.GetServiceLogsArgsSchema = exports.ALLOWED_SERVICES = exports.ALLOWED_CONTAINERS = void 0;
 const zod_1 = require("zod");
 exports.ALLOWED_CONTAINERS = ["sentinel-db", "dummy-api"];
 exports.ALLOWED_SERVICES = exports.ALLOWED_CONTAINERS;
@@ -64,15 +64,30 @@ exports.GetSystemStatusArgsSchema = zod_1.z
     .strict({
     message: "Extra inputs are not permitted",
 });
+exports.GetMetricsArgsSchema = zod_1.z
+    .object({})
+    .strict({
+    message: "Extra inputs are not permitted",
+});
 exports.VerifyRecoveryArgsSchema = zod_1.z
+    .object({
+    service: zod_1.z.enum(exports.ALLOWED_SERVICES, {
+        errorMap: () => ({
+            message: "Input should be 'sentinel-db' or 'dummy-api'",
+        }),
+    }),
+})
+    .strict({
+    message: "Extra inputs are not permitted",
+});
+exports.RollbackServiceArgsSchema = zod_1.z
     .object({
     service: zod_1.z
         .enum(exports.ALLOWED_SERVICES, {
         errorMap: () => ({
             message: "Input should be 'sentinel-db' or 'dummy-api'",
         }),
-    })
-        .default("dummy-api"),
+    }),
 })
     .strict({
     message: "Extra inputs are not permitted",
@@ -147,6 +162,7 @@ exports.PolicyUpdateSchema = zod_1.z
 exports.OFFICIAL_TOOL_NAMES = [
     "get_system_status",
     "get_service_logs",
+    "get_metrics",
     "check_database",
     "check_service",
     "restart_service",
@@ -154,6 +170,7 @@ exports.OFFICIAL_TOOL_NAMES = [
 ];
 exports.ALL_EXECUTABLE_TOOLS = [
     ...exports.OFFICIAL_TOOL_NAMES,
+    "rollback_service",
     "get_docker_logs",
     "restart_container",
     "delete_database",
@@ -189,13 +206,16 @@ exports.StructuredRcaSchema = zod_1.z
 // REGISTRY MAPPING
 // ==========================================
 exports.TOOL_SCHEMAS = {
-    // Official tools
+    // Official investigation tools
     get_system_status: exports.GetSystemStatusArgsSchema,
     get_service_logs: exports.GetServiceLogsArgsSchema,
+    get_metrics: exports.GetMetricsArgsSchema,
     check_database: exports.CheckDatabaseArgsSchema,
     check_service: exports.CheckServiceArgsSchema,
-    restart_service: exports.RestartServiceArgsSchema,
     verify_recovery: exports.VerifyRecoveryArgsSchema,
+    // Official remediation tools
+    restart_service: exports.RestartServiceArgsSchema,
+    rollback_service: exports.RollbackServiceArgsSchema,
     // Compatibility aliases
     get_docker_logs: exports.GetDockerLogsArgsSchema,
     restart_container: exports.RestartContainerArgsSchema,

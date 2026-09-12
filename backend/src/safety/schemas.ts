@@ -72,15 +72,32 @@ export const GetSystemStatusArgsSchema = z
     message: "Extra inputs are not permitted",
   });
 
+export const GetMetricsArgsSchema = z
+  .object({})
+  .strict({
+    message: "Extra inputs are not permitted",
+  });
+
 export const VerifyRecoveryArgsSchema = z
+  .object({
+    service: z.enum(ALLOWED_SERVICES, {
+      errorMap: () => ({
+        message: "Input should be 'sentinel-db' or 'dummy-api'",
+      }),
+    }),
+  })
+  .strict({
+    message: "Extra inputs are not permitted",
+  });
+
+export const RollbackServiceArgsSchema = z
   .object({
     service: z
       .enum(ALLOWED_SERVICES, {
         errorMap: () => ({
           message: "Input should be 'sentinel-db' or 'dummy-api'",
         }),
-      })
-      .default("dummy-api"),
+      }),
   })
   .strict({
     message: "Extra inputs are not permitted",
@@ -167,6 +184,7 @@ export const PolicyUpdateSchema = z
 export const OFFICIAL_TOOL_NAMES = [
   "get_system_status",
   "get_service_logs",
+  "get_metrics",
   "check_database",
   "check_service",
   "restart_service",
@@ -175,6 +193,7 @@ export const OFFICIAL_TOOL_NAMES = [
 
 export const ALL_EXECUTABLE_TOOLS = [
   ...OFFICIAL_TOOL_NAMES,
+  "rollback_service",
   "get_docker_logs",
   "restart_container",
   "delete_database",
@@ -217,13 +236,16 @@ export type ProposedAction = z.infer<typeof ProposedActionSchema>;
 // ==========================================
 
 export const TOOL_SCHEMAS = {
-  // Official tools
+  // Official investigation tools
   get_system_status: GetSystemStatusArgsSchema,
   get_service_logs: GetServiceLogsArgsSchema,
+  get_metrics: GetMetricsArgsSchema,
   check_database: CheckDatabaseArgsSchema,
   check_service: CheckServiceArgsSchema,
-  restart_service: RestartServiceArgsSchema,
   verify_recovery: VerifyRecoveryArgsSchema,
+  // Official remediation tools
+  restart_service: RestartServiceArgsSchema,
+  rollback_service: RollbackServiceArgsSchema,
   // Compatibility aliases
   get_docker_logs: GetDockerLogsArgsSchema,
   restart_container: RestartContainerArgsSchema,

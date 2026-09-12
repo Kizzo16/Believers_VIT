@@ -7,6 +7,8 @@ const policies_1 = require("../config/policies");
 const incident_service_1 = require("../services/incident.service");
 const schemas_1 = require("./schemas");
 const socket_1 = require("../realtime/socket");
+const approval_repository_1 = require("../repositories/approval.repository");
+const persistence_1 = require("../utils/persistence");
 async function executeToolWithGuardrail(toolName, incidentIdOrKwargs, maybeKwargs) {
     let incidentId = null;
     let kwargs = {};
@@ -76,6 +78,16 @@ async function executeToolWithGuardrail(toolName, incidentIdOrKwargs, maybeKwarg
             error: null,
         };
         incident_service_1.incidentService.addPendingApproval(approvalReq);
+        // STEP 5: Persist pending approval to PostgreSQL
+        await (0, persistence_1.safePersist)("ApprovalRepository", "create", approvalId, () => approval_repository_1.ApprovalRepository.create({
+            id: approvalId,
+            incident_id: incidentId,
+            tool_name: toolName,
+            kwargs: validatedKwargs,
+            risk,
+            status: "PENDING",
+            requested_at: approvalReq.requested_at,
+        }));
         return {
             status: "Requires Human Approval",
             approval_id: approvalId,
