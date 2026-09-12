@@ -6,8 +6,6 @@ import { logger } from "../utils/logger";
 import { emitSentinelEvent } from "../realtime/socket";
 
 class BlastRadiusService {
-  private lastAnalysis: BlastRadiusAnalysis | null = null;
-
   public analyzeBlastRadius(): BlastRadiusAnalysis {
     const activeIncident = incidentService.getCurrentIncident();
     const latestInvestigation = aiInvestigationService.getLatestResult();
@@ -56,7 +54,6 @@ class BlastRadiusService {
         reasoning: ["System health normal. All dependency graph nodes operating without propagated failure."],
         analyzed_at: new Date().toISOString(),
       };
-      this.lastAnalysis = healthyAnalysis;
       return healthyAnalysis;
     }
 
@@ -157,7 +154,6 @@ class BlastRadiusService {
       analyzed_at: new Date().toISOString(),
     };
 
-    this.lastAnalysis = analysisResult;
     logger.info({ analysisResult }, "Blast radius analysis computed");
     emitSentinelEvent("impact.blast_radius_calculated", analysisResult);
 

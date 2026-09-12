@@ -3,6 +3,7 @@ import { ContainerService } from "../services/container.service";
 import { incidentService } from "../services/incident.service";
 import { blastRadiusService } from "../services/blast-radius.service";
 import { recoveryPlannerService } from "../services/recovery-planner.service";
+import { policyEvaluatorService } from "../services/policy-evaluator.service";
 import { loadPolicies } from "../config/policies";
 import { SystemStatusResponse } from "../types/sentinel";
 
@@ -40,6 +41,7 @@ export async function getStatusHandler(_req: FastifyRequest, reply: FastifyReply
     current_incident: incidentService.getCurrentIncident(),
     blast_radius: blastRadiusService.getLatestAnalysis(),
     recovery_plan: recoveryPlannerService.getLatestPlan(),
+    latest_policy_decision: policyEvaluatorService.getLatestDecision(),
     ai_reasoning: incidentService.aiReasoning.toArray(),
     incident_logs: incidentService.incidentLogs.toArray(),
     pending_approvals: incidentService.pendingApprovals.toArray(),

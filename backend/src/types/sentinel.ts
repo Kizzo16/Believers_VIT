@@ -98,30 +98,6 @@ export interface InvestigationResult {
   recommended_remediation?: string;
 }
 
-export interface SystemStatusResponse {
-  system_health: SystemHealth;
-  dummy_api_status: ServiceStatus;
-  database_status: ServiceStatus;
-  containers: {
-    sentinel_db: ContainerState;
-    dummy_api: ContainerState;
-  };
-  last_ping_time: string | null;
-  last_ping_code: number | null;
-  active_incident: boolean;
-  current_incident: IncidentData | null;
-  latest_investigation?: InvestigationResult | null;
-  observability?: ObservabilityEvidence;
-  blast_radius?: BlastRadiusAnalysis;
-  recovery_plan?: RecoveryStrategyPlan;
-  ai_reasoning: AIReasoningItem[];
-  incident_logs: IncidentLogItem[];
-  pending_approvals: PendingApproval[];
-  policies: GuardrailPolicies;
-}
-
-
-
 export interface AuditEvent {
   approval_id: string;
   incident_id?: string | null;
@@ -180,4 +156,44 @@ export interface RecoveryStrategyPlan {
   recommended_option: RecoveryOption | null;
   selection_reasoning: string[];
   generated_at: string;
+}
+
+export interface PolicyDecision {
+  tool_name: string;
+  kwargs: Record<string, unknown>;
+  base_risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  effective_risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  decision: "AUTO_EXECUTE" | "HUMAN_APPROVAL_REQUIRED" | "BLOCKED";
+  auto_execute: boolean;
+  contextual_factors: {
+    blast_radius_level: string;
+    is_critical_path: boolean;
+    recovery_confidence: number;
+    risk_escalated: boolean;
+  };
+  policy_reasoning: string[];
+  evaluated_at: string;
+}
+
+export interface SystemStatusResponse {
+  system_health: SystemHealth;
+  dummy_api_status: ServiceStatus;
+  database_status: ServiceStatus;
+  containers: {
+    sentinel_db: ContainerState;
+    dummy_api: ContainerState;
+  };
+  last_ping_time: string | null;
+  last_ping_code: number | null;
+  active_incident: boolean;
+  current_incident: IncidentData | null;
+  latest_investigation?: InvestigationResult | null;
+  observability?: ObservabilityEvidence;
+  blast_radius?: BlastRadiusAnalysis;
+  recovery_plan?: RecoveryStrategyPlan;
+  latest_policy_decision?: PolicyDecision;
+  ai_reasoning: AIReasoningItem[];
+  incident_logs: IncidentLogItem[];
+  pending_approvals: PendingApproval[];
+  policies: GuardrailPolicies;
 }

@@ -3,6 +3,7 @@
 import React from "react";
 import { useSentinel } from "@/context/SentinelContext";
 import { SafetyRadar } from "@/components/sentinel/SafetyRadar";
+import { SafetyPolicyPanel } from "@/components/sentinel/SafetyPolicyPanel";
 import { Button } from "@/components/ui/button";
 import {
   ShieldCheck,
@@ -58,6 +59,9 @@ export default function GovernancePage() {
           </span>
         </div>
       </div>
+
+      {/* Module 8: Safety & Policy Engine Panel */}
+      <SafetyPolicyPanel />
 
       {/* Pending Human Approval Queue (If Actions Intercepted) */}
       {pendingApprovals.length > 0 && (

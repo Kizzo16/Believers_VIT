@@ -6,8 +6,6 @@ import { logger } from "../utils/logger";
 import { emitSentinelEvent } from "../realtime/socket";
 
 class RecoveryPlannerService {
-  private lastPlan: RecoveryStrategyPlan | null = null;
-
   public generateRecoveryPlan(): RecoveryStrategyPlan {
     const activeIncident = incidentService.getCurrentIncident();
     const investigation = aiInvestigationService.getLatestResult();
@@ -31,7 +29,6 @@ class RecoveryPlannerService {
         ],
         generated_at: new Date().toISOString(),
       };
-      this.lastPlan = healthyPlan;
       return healthyPlan;
     }
 
@@ -164,7 +161,6 @@ class RecoveryPlannerService {
       generated_at: new Date().toISOString(),
     };
 
-    this.lastPlan = planResult;
     logger.info({ planResult }, "Recovery strategy plan generated");
     emitSentinelEvent("recovery.plan_generated", planResult);
 

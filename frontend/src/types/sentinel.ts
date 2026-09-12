@@ -99,6 +99,23 @@ export interface RecoveryStrategyPlan {
   generated_at: string;
 }
 
+export interface PolicyDecision {
+  tool_name: string;
+  kwargs: Record<string, unknown>;
+  base_risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  effective_risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  decision: "AUTO_EXECUTE" | "HUMAN_APPROVAL_REQUIRED" | "BLOCKED";
+  auto_execute: boolean;
+  contextual_factors: {
+    blast_radius_level: string;
+    is_critical_path: boolean;
+    recovery_confidence: number;
+    risk_escalated: boolean;
+  };
+  policy_reasoning: string[];
+  evaluated_at: string;
+}
+
 export interface SystemStatusResponse {
   system_health: SystemHealth;
   dummy_api_status: ServiceStatus;
@@ -113,6 +130,7 @@ export interface SystemStatusResponse {
   current_incident: IncidentData | null;
   blast_radius?: BlastRadiusAnalysis;
   recovery_plan?: RecoveryStrategyPlan;
+  latest_policy_decision?: PolicyDecision;
   ai_reasoning: AIReasoningItem[];
   incident_logs: IncidentLogItem[];
   pending_approvals: PendingApproval[];

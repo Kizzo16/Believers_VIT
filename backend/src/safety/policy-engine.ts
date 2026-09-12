@@ -1,8 +1,8 @@
 import { ZodError } from "zod";
 import { TOOLS } from "../agent/tools";
 import { ToolExecutionResult } from "../agent/types";
-import { loadPolicies } from "../config/policies";
 import { incidentService } from "../services/incident.service";
+import { policyEvaluatorService } from "../services/policy-evaluator.service";
 import { TOOL_SCHEMAS, ToolName } from "./schemas";
 import { emitSentinelEvent } from "../realtime/socket";
 
@@ -59,18 +59,35 @@ export async function executeToolWithGuardrail(
     }
   }
 
-  // 3. Guardrail Policy Check
-  const policies = loadPolicies();
-  const policy = policies[toolName] || { risk: "UNKNOWN", auto_execute: false };
-  const risk = policy.risk || "HIGH";
-  const autoExecute = policy.auto_execute || false;
+  // 3. Module 8 Policy Evaluation (Contextual & Technical Risk Evaluation)
+  const policyDecision = policyEvaluatorService.evaluateAction(toolName, validatedKwargs);
+  const { decision, effective_risk: risk, policy_reasoning } = policyDecision;
 
   incidentService.logEvent(
-    `🛡️ [Guardrail Check] Evaluating '${toolName}' - Risk: ${risk}, Auto-Execute: ${autoExecute}`
+    `🛡️ [Module 8 Policy Evaluation] Action '${toolName}' -> Decision: ${decision} (Effective Risk: ${risk})`
   );
 
-  if (!autoExecute) {
-    const msg = `Requires Human Approval (Action '${toolName}' has risk level ${risk})`;
+  // Handle BLOCKED Decision (Destructive / Critical actions)
+  if (decision === "BLOCKED") {
+    const msg = `Action '${toolName}' BLOCKED by Sentinel Policy Engine (Critical / Destructive Risk)`;
+    incidentService.logEvent(`⛔ [Policy BLOCKED] ${msg}`, "ERROR");
+    incidentService.addAiReasoning(
+      `CRITICAL POLICY BLOCK: Action '${toolName}' permanently BLOCKED by safety engine.`,
+      toolName,
+      "BLOCKED BY POLICY ENGINE"
+    );
+
+    return {
+      status: "ERROR",
+      error_type: "POLICY_BLOCKED",
+      message: msg,
+      details: policy_reasoning,
+    };
+  }
+
+  // Handle HUMAN_APPROVAL_REQUIRED Decision
+  if (decision === "HUMAN_APPROVAL_REQUIRED") {
+    const msg = `Requires Human Approval (Action '${toolName}' evaluated with effective risk ${risk})`;
     incidentService.logEvent(`⛔ [Guardrail Blocked] ${msg}`, "WARNING");
 
     const approvalId = `APPR-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -103,7 +120,7 @@ export async function executeToolWithGuardrail(
 
   // 4. Auto-Execution with Validated Arguments
   incidentService.logEvent(
-    `✅ [Guardrail Approved] Auto-executing '${toolName}' with args ${JSON.stringify(validatedKwargs)}`
+    `✅ [Policy Authorized] Auto-executing '${toolName}' with args ${JSON.stringify(validatedKwargs)}`
   );
 
   const toolFunc = TOOLS[toolName];
