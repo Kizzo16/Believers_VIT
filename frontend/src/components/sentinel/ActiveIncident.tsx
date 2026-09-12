@@ -155,7 +155,7 @@ export function ActiveIncident({ data }: ActiveIncidentProps) {
         <EvidencePanel
           errorSnippet={errorMsg}
           rootCause="The primary database container 'sentinel-db' unexpectedly halted, causing dependent client connections from 'dummy-api' to trigger TCP connection refused exceptions."
-          affectedService={affectedService}
+          affectedService={affectedServices}
         />
       </div>
     </section>

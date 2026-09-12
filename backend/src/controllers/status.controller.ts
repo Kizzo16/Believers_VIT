@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { ContainerService } from "../services/container.service";
 import { incidentService } from "../services/incident.service";
+import { blastRadiusService } from "../services/blast-radius.service";
 import { loadPolicies } from "../config/policies";
 import { SystemStatusResponse } from "../types/sentinel";
 
@@ -36,6 +37,7 @@ export async function getStatusHandler(_req: FastifyRequest, reply: FastifyReply
     last_ping_code: incidentService.getLastPingCode(),
     active_incident: incidentService.isActiveIncident(),
     current_incident: incidentService.getCurrentIncident(),
+    blast_radius: blastRadiusService.getLatestAnalysis(),
     ai_reasoning: incidentService.aiReasoning.toArray(),
     incident_logs: incidentService.incidentLogs.toArray(),
     pending_approvals: incidentService.pendingApprovals.toArray(),

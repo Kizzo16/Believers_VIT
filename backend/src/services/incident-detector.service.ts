@@ -64,6 +64,8 @@ class IncidentDetectorService {
       latency_ms: evidence.metrics.avg_response_time_ms,
     };
 
+    logger.info({ incidentRecord }, "Incident detected and record created");
+
     incidentService.setActiveIncident(true);
     incidentService.setSystemHealth(severity === "CRITICAL" ? "INCIDENT_ACTIVE" : "DEGRADED");
     incidentService.setCurrentIncident(incidentRecord);

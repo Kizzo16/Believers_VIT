@@ -112,15 +112,16 @@ class TopologyService {
 
   // Root Cause vs Downstream Symptom Isolation Algorithm
   distinguishRootVsSymptoms(failedServiceIds: string[]): {
+    root_cause: string | null;
     root_cause_service: string | null;
     downstream_symptoms: string[];
   } {
     if (failedServiceIds.length === 0) {
-      return { root_cause_service: null, downstream_symptoms: [] };
+      return { root_cause: null, root_cause_service: null, downstream_symptoms: [] };
     }
 
     if (failedServiceIds.length === 1) {
-      return { root_cause_service: failedServiceIds[0], downstream_symptoms: [] };
+      return { root_cause: failedServiceIds[0], root_cause_service: failedServiceIds[0], downstream_symptoms: [] };
     }
 
     // A service is a root cause if none of the other failed services are its upstream dependencies
@@ -140,13 +141,14 @@ class TopologyService {
       }
     }
 
-    return { root_cause_service: rootCause || failedServiceIds[0], downstream_symptoms: symptoms };
+    const rc = rootCause || failedServiceIds[0];
+    return { root_cause: rc, root_cause_service: rc, downstream_symptoms: symptoms };
   }
 
   // Merges Dependency Map with Live Telemetry Health
   getTopologyWithHealth(): {
     graph: Record<string, ServiceTopologyNode>;
-    analysis: { root_cause: string | null; downstream_symptoms: string[] };
+    analysis: { root_cause: string | null; root_cause_service: string | null; downstream_symptoms: string[] };
   } {
     const dbStatus = incidentService.getDatabaseStatus();
     const apiStatus = incidentService.getDummyApiStatus();

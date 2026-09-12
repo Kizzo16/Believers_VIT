@@ -112,6 +112,7 @@ export interface SystemStatusResponse {
   current_incident: IncidentData | null;
   latest_investigation?: InvestigationResult | null;
   observability?: ObservabilityEvidence;
+  blast_radius?: BlastRadiusAnalysis;
   ai_reasoning: AIReasoningItem[];
   incident_logs: IncidentLogItem[];
   pending_approvals: PendingApproval[];
@@ -130,3 +131,28 @@ export interface AuditEvent {
   success: boolean;
   error?: string | null;
 }
+
+export interface ServiceImpactDetail {
+  id: string;
+  name: string;
+  is_direct: boolean;
+  is_customer_facing: boolean;
+  is_critical: boolean;
+  status: string;
+  impact_description: string;
+}
+
+export interface BlastRadiusAnalysis {
+  incident_id: string | null;
+  root_cause: string;
+  affected_services_count: number;
+  customer_impact: "HIGH" | "MEDIUM" | "LOW" | "NONE";
+  critical_path_affected: boolean;
+  blast_radius_level: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE";
+  directly_affected_services: string[];
+  indirectly_affected_services: string[];
+  service_impacts: ServiceImpactDetail[];
+  reasoning: string[];
+  analyzed_at: string;
+}
+

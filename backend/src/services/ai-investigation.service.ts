@@ -69,6 +69,7 @@ class AiInvestigationService {
     };
 
     this.latestResult = result;
+    logger.info({ result }, "AI Investigation completed");
 
     incidentService.addAiReasoning(
       `🔍 [Module 5 AI Investigation] Root Cause: ${rootCause} | Confidence: ${confidencePct}%`,

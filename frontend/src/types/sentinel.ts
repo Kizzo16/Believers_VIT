@@ -44,8 +44,34 @@ export interface IncidentData {
   detected_at: string;
   error: string;
   status: string;
+  severity?: string;
+  affected_services?: string[];
   recovery_time?: string;
   resolved_at?: string;
+}
+
+export interface ServiceImpactDetail {
+  id: string;
+  name: string;
+  is_direct: boolean;
+  is_customer_facing: boolean;
+  is_critical: boolean;
+  status: string;
+  impact_description: string;
+}
+
+export interface BlastRadiusAnalysis {
+  incident_id: string | null;
+  root_cause: string;
+  affected_services_count: number;
+  customer_impact: "HIGH" | "MEDIUM" | "LOW" | "NONE";
+  critical_path_affected: boolean;
+  blast_radius_level: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "NONE";
+  directly_affected_services: string[];
+  indirectly_affected_services: string[];
+  service_impacts: ServiceImpactDetail[];
+  reasoning: string[];
+  analyzed_at: string;
 }
 
 export interface SystemStatusResponse {
@@ -60,6 +86,7 @@ export interface SystemStatusResponse {
   last_ping_code: number | null;
   active_incident: boolean;
   current_incident: IncidentData | null;
+  blast_radius?: BlastRadiusAnalysis;
   ai_reasoning: AIReasoningItem[];
   incident_logs: IncidentLogItem[];
   pending_approvals: PendingApproval[];

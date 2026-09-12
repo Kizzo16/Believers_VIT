@@ -61,7 +61,6 @@ export class HealthMonitorService {
 
       const latencyMs = Date.now() - startTime;
       const statusCode = resp.status;
-      const respText = await resp.text();
 
       observabilityService.recordRequest(statusCode, latencyMs);
 
