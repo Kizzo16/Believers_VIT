@@ -14,6 +14,10 @@ const envSchema = z.object({
   GOOGLE_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-5.6"),
+  DATABASE_URL: z
+    .string()
+    .optional()
+    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
 });
 
 export const env = envSchema.parse(process.env);

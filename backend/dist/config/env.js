@@ -18,5 +18,9 @@ const envSchema = zod_1.z.object({
     GOOGLE_API_KEY: zod_1.z.string().optional(),
     OPENAI_API_KEY: zod_1.z.string().optional(),
     OPENAI_MODEL: zod_1.z.string().default("gpt-5.6"),
+    DATABASE_URL: zod_1.z
+        .string()
+        .optional()
+        .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
 });
 exports.env = envSchema.parse(process.env);

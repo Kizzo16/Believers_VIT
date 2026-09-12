@@ -7,6 +7,8 @@ const incident_service_1 = require("./incident.service");
 const agent_1 = require("../agent/agent");
 const logger_1 = require("../utils/logger");
 const socket_1 = require("../realtime/socket");
+const incident_repository_1 = require("../repositories/incident.repository");
+const persistence_1 = require("../utils/persistence");
 class HealthMonitorService {
     timer = null;
     isRunning = false;
@@ -75,8 +77,17 @@ class HealthMonitorService {
                     currentIncident.status = "RESOLVED";
                     incident_service_1.incidentService.setActiveIncident(false);
                     incident_service_1.incidentService.setSystemHealth("HEALTHY");
+                    // Asynchronous write-through to PostgreSQL
+                    void (0, persistence_1.safePersist)("IncidentRepository", "update", currentIncident.id, () => incident_repository_1.IncidentRepository.update(currentIncident.id, {
+                        status: "RESOLVED",
+                        resolved_at: currentIncident.resolved_at,
+                        recovery_time: currentIncident.recovery_time,
+                    }));
                     incident_service_1.incidentService.logEvent(`🎉 ${recoveryStr}`);
-                    incident_service_1.incidentService.addAiReasoning(recoveryStr, "verify_health", "200 OK");
+                    incident_service_1.incidentService.addAiReasoning(recoveryStr, "verify_health", "200 OK", {
+                        incident_id: currentIncident.id,
+                        source: "health_monitor",
+                    });
                     (0, socket_1.emitSentinelEvent)("service.recovered", { recovery_time: `${elapsedSec}s` });
                 }
             }
@@ -84,7 +95,6 @@ class HealthMonitorService {
                 incident_service_1.incidentService.setDummyApiStatus("DOWN");
                 incident_service_1.incidentService.setDatabaseStatus("DOWN");
                 if (!incident_service_1.incidentService.isActiveIncident()) {
-                    incident_service_1.incidentService.setActiveIncident(true);
                     const incidentId = `INC-${Math.floor(Date.now() / 1000)}`;
                     const incidentData = {
                         id: incidentId,
@@ -92,6 +102,15 @@ class HealthMonitorService {
                         error: respText,
                         status: "INVESTIGATING",
                     };
+                    // Establish durable incident record in DB first
+                    await (0, persistence_1.safePersist)("IncidentRepository", "create", incidentId, () => incident_repository_1.IncidentRepository.create({
+                        id: incidentId,
+                        status: incidentData.status,
+                        detected_at: incidentData.detected_at,
+                        service: "dummy-api",
+                        error: incidentData.error,
+                    }));
+                    incident_service_1.incidentService.setActiveIncident(true);
                     incident_service_1.incidentService.setCurrentIncident(incidentData);
                     incident_service_1.incidentService.logEvent(`⚠️ Health check returned HTTP ${statusCode} from ${env_1.env.DUMMY_API_URL}: ${respText}`, "ERROR");
                     // Asynchronously trigger the autonomous agent
@@ -109,7 +128,6 @@ class HealthMonitorService {
             const dbRunning = await container_service_1.ContainerService.checkContainerRunning("sentinel-db");
             incident_service_1.incidentService.setDatabaseStatus(dbRunning ? "UP" : "DOWN");
             if (!incident_service_1.incidentService.isActiveIncident()) {
-                incident_service_1.incidentService.setActiveIncident(true);
                 const incidentId = `INC-${Math.floor(Date.now() / 1000)}`;
                 const errDetail = exc instanceof Error ? exc.message : String(exc);
                 const incidentData = {
@@ -118,6 +136,15 @@ class HealthMonitorService {
                     error: `Service unreachable: ${errDetail}`,
                     status: "INVESTIGATING",
                 };
+                // Establish durable incident record in DB first
+                await (0, persistence_1.safePersist)("IncidentRepository", "create", incidentId, () => incident_repository_1.IncidentRepository.create({
+                    id: incidentId,
+                    status: incidentData.status,
+                    detected_at: incidentData.detected_at,
+                    service: "dummy-api",
+                    error: incidentData.error,
+                }));
+                incident_service_1.incidentService.setActiveIncident(true);
                 incident_service_1.incidentService.setCurrentIncident(incidentData);
                 incident_service_1.incidentService.logEvent(`⚠️ Health ping connection failed: ${errDetail}`, "ERROR");
                 // Asynchronously trigger the autonomous agent

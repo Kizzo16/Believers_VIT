@@ -57,6 +57,10 @@ export interface IncidentData {
   resolved_at?: string;
   confidence?: number;
   structured_rca?: StructuredRca;
+  verification_status?: "PENDING" | "PASSED" | "FAILED" | null;
+  verification_attempts?: number;
+  reinvestigation_attempts?: number;
+  recovery_verified_at?: string | null;
 }
 
 export interface ObservabilityMetrics {

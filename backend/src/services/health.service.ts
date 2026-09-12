@@ -5,6 +5,8 @@ import { observabilityService } from "./observability.service";
 import { incidentDetectorService } from "./incident-detector.service";
 import { logger } from "../utils/logger";
 import { emitSentinelEvent } from "../realtime/socket";
+import { IncidentRepository } from "../repositories/incident.repository";
+import { safePersist } from "../utils/persistence";
 
 export class HealthMonitorService {
   private timer: NodeJS.Timeout | null = null;
@@ -90,8 +92,20 @@ export class HealthMonitorService {
           incidentService.setActiveIncident(false);
           incidentService.setSystemHealth("HEALTHY");
 
+          // Asynchronous write-through to PostgreSQL
+          void safePersist("IncidentRepository", "update", currentIncident.id, () =>
+            IncidentRepository.update(currentIncident.id, {
+              status: "RESOLVED",
+              resolved_at: currentIncident.resolved_at,
+              recovery_time: currentIncident.recovery_time,
+            })
+          );
+
           incidentService.logEvent(`🎉 ${recoveryStr}`);
-          incidentService.addAiReasoning(recoveryStr, "verify_health", "200 OK");
+          incidentService.addAiReasoning(recoveryStr, "verify_health", "200 OK", {
+            incident_id: currentIncident.id,
+            source: "health_monitor",
+          });
           emitSentinelEvent("service.recovered", { recovery_time: `${elapsedSec}s` });
         }
       } else if (statusCode >= 500) {

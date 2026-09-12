@@ -35,5 +35,24 @@ services:
       sentinel-db:
         condition: service_healthy
 
+  sentinel-control-db:
+    image: postgres:16-alpine
+    container_name: sentinel-control-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sentinel_control
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sentinel_control"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - sentinel-control-data:/var/lib/postgresql/data
+
 volumes:
   sentinel-db-data:
+  sentinel-control-data:
