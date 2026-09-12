@@ -1,0 +1,39 @@
+services:
+  sentinel-db:
+    image: postgres:16-alpine
+    container_name: sentinel-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sentinel
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sentinel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - sentinel-db-data:/var/lib/postgresql/data
+
+  dummy-api:
+    build:
+      context: ./dummy-api
+      dockerfile: Dockerfile
+    container_name: dummy-api
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      DB_HOST: sentinel-db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: sentinel
+    depends_on:
+      sentinel-db:
+        condition: service_healthy
+
+volumes:
+  sentinel-db-data:

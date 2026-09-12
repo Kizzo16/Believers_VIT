@@ -1,0 +1,38 @@
+{
+  "get_system_status": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "get_service_logs": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "check_database": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "check_service": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "restart_service": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "verify_recovery": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "get_docker_logs": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "restart_container": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
+  "delete_database": {
+    "risk": "CRITICAL",
+    "auto_execute": false
+  }
+}
