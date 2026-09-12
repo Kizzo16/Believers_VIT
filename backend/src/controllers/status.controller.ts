@@ -6,6 +6,7 @@ import { recoveryPlannerService } from "../services/recovery-planner.service";
 import { policyEvaluatorService } from "../services/policy-evaluator.service";
 import { actionExecutorService } from "../services/action-executor.service";
 import { recoveryVerificationService } from "../services/recovery-verification.service";
+import { reinvestigationService } from "../services/reinvestigation.service";
 import { loadPolicies } from "../config/policies";
 import { SystemStatusResponse } from "../types/sentinel";
 
@@ -46,11 +47,13 @@ export async function getStatusHandler(_req: FastifyRequest, reply: FastifyReply
     latest_policy_decision: policyEvaluatorService.getLatestDecision(),
     latest_execution_receipt: actionExecutorService.getLatestReceipt() || undefined,
     latest_verification: recoveryVerificationService.getLatestReport(),
+    latest_reinvestigation: reinvestigationService.getLatestReport(),
     ai_reasoning: incidentService.aiReasoning.toArray(),
     incident_logs: incidentService.incidentLogs.toArray(),
     pending_approvals: incidentService.pendingApprovals.toArray(),
     policies: loadPolicies(),
   };
+
 
 
   return reply.send(response);

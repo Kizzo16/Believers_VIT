@@ -149,6 +149,24 @@ export interface VerificationReport {
   reasoning: string[];
 }
 
+export interface ReInvestigationReport {
+  reinvestigation_id: string;
+  incident_id: string | null;
+  attempt_number: number;
+  max_attempts: number;
+  previous_action: string;
+  verification_status: "FAILED" | "PARTIAL" | "VERIFIED";
+  updated_root_cause: string;
+  updated_confidence: number;
+  attempted_actions_history: string[];
+  next_step: "ALTERNATIVE_ACTION" | "ROLLBACK" | "ESCALATE_TO_HUMAN";
+  recommended_option: RecoveryOption | null;
+  escalation_reason: string | null;
+  reinvestigated_at: string;
+  adaptive_reasoning: string[];
+}
+
+
 export interface SystemStatusResponse {
   system_health: SystemHealth;
   dummy_api_status: ServiceStatus;
@@ -166,9 +184,11 @@ export interface SystemStatusResponse {
   latest_policy_decision?: PolicyDecision;
   latest_execution_receipt?: ExecutionReceipt;
   latest_verification?: VerificationReport | null;
+  latest_reinvestigation?: ReInvestigationReport | null;
   ai_reasoning: AIReasoningItem[];
   incident_logs: IncidentLogItem[];
   pending_approvals: PendingApproval[];
   policies: GuardrailPolicies;
 }
+
 

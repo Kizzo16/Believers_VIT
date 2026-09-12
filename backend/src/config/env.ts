@@ -8,7 +8,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(8000),
   HOST: z.string().default("0.0.0.0"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  DUMMY_API_URL: z.string().url().default("http://localhost:8001/health"),
+  DUMMY_API_URL: z.string().url().default("http://127.0.0.1:8001/health"),
   POLICIES_FILE: z.string().default("./policies.json"),
   GEMINI_API_KEY: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),

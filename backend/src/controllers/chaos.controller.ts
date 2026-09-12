@@ -1,17 +1,31 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { ContainerService } from "../services/container.service";
 import { incidentService } from "../services/incident.service";
+import { reinvestigationService } from "../services/reinvestigation.service";
 import { executeToolWithGuardrail } from "../safety/policy-engine";
 import { loadPolicies, savePolicies } from "../config/policies";
 import { PolicyUpdateSchema } from "../safety/schemas";
 
+
 export async function killDbHandler(_req: FastifyRequest, reply: FastifyReply) {
   incidentService.logEvent("💥 [Chaos Engineering] Triggered: 'Kill Database' action invoked from UI");
 
+  incidentService.setDatabaseStatus("DOWN");
+  incidentService.setSystemHealth("DEGRADED");
+  incidentService.setActiveIncident(true);
+  incidentService.setCurrentIncident({
+    id: `INC-${Date.now()}`,
+    detected_at: new Date().toISOString(),
+    error: "PostgreSQL database container halted unexpectedly (Connection Refused)",
+    status: "INVESTIGATING",
+    severity: "CRITICAL",
+    affected_services: ["sentinel-db", "dummy-api"],
+    error_rate: "65.0%",
+    latency_ms: 1200,
+  });
+
   try {
     const res = await ContainerService.stopContainer("sentinel-db");
-    incidentService.setDatabaseStatus("DOWN");
-    incidentService.setSystemHealth("DEGRADED");
     return reply.send({
       status: "SUCCESS",
       action: "kill_database",
@@ -20,12 +34,9 @@ export async function killDbHandler(_req: FastifyRequest, reply: FastifyReply) {
       message: "Database stopped. SRE Autonomous Agent will detect 500 error and initiate recovery.",
     });
   } catch {
-    // Also trigger dummy-api endpoint if docker stop unavailable or container inside network
     try {
-      await fetch("http://localhost:8001/chaos/db-failure", { method: "POST" });
+      await fetch("http://127.0.0.1:8001/chaos/db-failure", { method: "POST" });
     } catch {}
-    incidentService.setDatabaseStatus("DOWN");
-    incidentService.setSystemHealth("DEGRADED");
     return reply.send({
       status: "SUCCESS",
       action: "kill_database",
@@ -38,11 +49,22 @@ export async function killApiHandler(_req: FastifyRequest, reply: FastifyReply) 
   incidentService.logEvent("💥 [Chaos Engineering] Triggered: 'API Failure' action invoked from UI");
 
   try {
-    await fetch("http://localhost:8001/chaos/api-failure", { method: "POST" });
+    await fetch("http://127.0.0.1:8001/chaos/api-failure", { method: "POST" });
   } catch {}
 
   incidentService.setApiServiceStatus("DOWN");
   incidentService.setSystemHealth("DEGRADED");
+  incidentService.setActiveIncident(true);
+  incidentService.setCurrentIncident({
+    id: `INC-${Date.now()}`,
+    detected_at: new Date().toISOString(),
+    error: "Orders API endpoint returning HTTP 500 Internal Server Errors",
+    status: "INVESTIGATING",
+    severity: "HIGH",
+    affected_services: ["dummy-api"],
+    error_rate: "100.0%",
+    latency_ms: 850,
+  });
 
   return reply.send({
     status: "SUCCESS",
@@ -55,11 +77,22 @@ export async function configFailureHandler(_req: FastifyRequest, reply: FastifyR
   incidentService.logEvent("💥 [Chaos Engineering] Triggered: 'Configuration Failure' action invoked from UI");
 
   try {
-    await fetch("http://localhost:8001/chaos/config-failure", { method: "POST" });
+    await fetch("http://127.0.0.1:8001/chaos/config-failure", { method: "POST" });
   } catch {}
 
   incidentService.setDatabaseStatus("DOWN");
   incidentService.setSystemHealth("DEGRADED");
+  incidentService.setActiveIncident(true);
+  incidentService.setCurrentIncident({
+    id: `INC-${Date.now()}`,
+    detected_at: new Date().toISOString(),
+    error: "Corrupted connection configuration parameters detected across application stack",
+    status: "INVESTIGATING",
+    severity: "HIGH",
+    affected_services: ["sentinel-db", "dummy-api"],
+    error_rate: "80.0%",
+    latency_ms: 1500,
+  });
 
   return reply.send({
     status: "SUCCESS",
@@ -67,6 +100,7 @@ export async function configFailureHandler(_req: FastifyRequest, reply: FastifyR
     message: "Configuration Failure triggered. Database connection parameters corrupted.",
   });
 }
+
 
 export async function resetEnvironmentHandler(_req: FastifyRequest, reply: FastifyReply) {
   incidentService.logEvent("🔄 [Chaos Engineering] Triggered: 'Reset Environment' action invoked from UI");
@@ -80,13 +114,15 @@ export async function resetEnvironmentHandler(_req: FastifyRequest, reply: Fasti
   } catch {}
 
   try {
-    await fetch("http://localhost:8001/chaos/reset", { method: "POST" });
+    await fetch("http://127.0.0.1:8001/chaos/reset", { method: "POST" });
   } catch {}
 
   incidentService.setDatabaseStatus("HEALTHY");
   incidentService.setApiServiceStatus("HEALTHY");
   incidentService.setSystemHealth("HEALTHY");
   incidentService.clearIncidents();
+  reinvestigationService.clearAll();
+
 
   return reply.send({
     status: "SUCCESS",

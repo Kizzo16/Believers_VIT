@@ -31,6 +31,10 @@
     "risk": "LOW",
     "auto_execute": true
   },
+  "rollback_configuration": {
+    "risk": "LOW",
+    "auto_execute": true
+  },
   "delete_database": {
     "risk": "CRITICAL",
     "auto_execute": false

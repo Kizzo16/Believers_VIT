@@ -12,6 +12,7 @@ import { recoveryRoutes } from "./routes/recovery.routes";
 import { policyRoutes } from "./routes/policy.routes";
 import { executorRoutes } from "./routes/executor.routes";
 import { verificationRoutes } from "./routes/verification.routes";
+import { reinvestigationRoutes } from "./routes/reinvestigation.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -39,6 +40,8 @@ export function buildApp() {
   void app.register(policyRoutes);
   void app.register(executorRoutes);
   void app.register(verificationRoutes);
+  void app.register(reinvestigationRoutes);
+
 
 
 

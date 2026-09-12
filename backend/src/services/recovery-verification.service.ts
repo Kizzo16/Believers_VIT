@@ -1,5 +1,6 @@
 import { observabilityService } from "./observability.service";
 import { incidentService } from "./incident.service";
+import { reinvestigationService } from "./reinvestigation.service";
 import { ExecutionReceipt, VerificationCheck, VerificationReport } from "../types/sentinel";
 import { RingBuffer } from "../utils/ring-buffer";
 import { logger } from "../utils/logger";
@@ -93,7 +94,6 @@ class RecoveryVerificationService {
         : `Average response latency elevated at ${metrics.avg_response_time_ms} ms.`,
     };
 
-
     const checks = [dbCheck, apiCheck, appCheck, errorRateCheck, latencyCheck];
     const passedCount = checks.filter((c) => c.passed).length;
 
@@ -125,7 +125,7 @@ class RecoveryVerificationService {
     reasoning.push(
       latencyPassed
         ? `✓ Latency check passed: ${metrics.avg_response_time_ms}ms response time is within target.`
-        : `✗ Latency check failed: ${metrics.avg_response_time_ms}ms response time exceeds 500ms.`
+        : `✗ Latency check failed: ${metrics.avg_response_time_ms}ms response time exceeds 1500ms.`
     );
 
     let summary = "";
@@ -186,6 +186,15 @@ class RecoveryVerificationService {
     this.verificationHistory.push(report);
 
     emitSentinelEvent("verification.report", report);
+
+    // If verification failed, trigger Module 11 Re-Investigation / Rollback / Escalation Engine
+    if (recoveryStatus !== "VERIFIED") {
+      try {
+        await reinvestigationService.reinvestigate(report);
+      } catch (err) {
+        logger.error({ err }, "[Module 11 Re-Investigation Trigger Error]");
+      }
+    }
 
     return report;
   }

@@ -255,26 +255,28 @@ export const restartServiceTool: ToolFunction = async (kwargs: Record<string, un
     incidentService.setSystemHealth("RECOVERING");
   }
 
-  // Reset metrics & FastAPI chaos state for clean post-action verification
+  // Reset metrics for clean post-action verification
   observabilityService.resetMetrics();
-  try {
-    await fetch("http://localhost:8001/chaos/reset", { method: "POST" });
-  } catch {}
 
-  return `Service '${service}' restarted successfully. Telemetry metrics reset to nominal. Incident transitioned to RECOVERING state pending Module 10 verification.`;
+  return `Service '${service}' restarted successfully. Incident transitioned to RECOVERING state pending Module 10 verification.`;
 };
 
 export const rollbackConfigurationTool: ToolFunction = async (kwargs: Record<string, unknown>): Promise<string> => {
   const service = typeof kwargs.service === "string" ? kwargs.service : "dummy-api";
 
   // Real state mutation in controlled demo environment
-  incidentService.clearIncidents();
-  incidentService.setSystemHealth("HEALTHY");
   incidentService.setDatabaseStatus("UP");
   incidentService.setDummyApiStatus("UP");
+  incidentService.setSystemHealth("RECOVERING");
+  observabilityService.resetMetrics();
 
-  return `Configuration rollback for '${service}' executed successfully. Known stable baseline parameters restored. State: HEALTHY.`;
+  try {
+    await fetch("http://127.0.0.1:8001/chaos/reset", { method: "POST" });
+  } catch {}
+
+  return `Configuration rollback for '${service}' executed successfully. Known stable baseline parameters restored. State: RECOVERING pending Module 10 verification.`;
 };
+
 
 export const verifyRecoveryTool: ToolFunction = async (kwargs: Record<string, unknown>): Promise<string> => {
   const service = typeof kwargs.service === "string" ? kwargs.service : "dummy-api";
