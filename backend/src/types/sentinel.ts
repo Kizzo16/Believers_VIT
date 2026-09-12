@@ -193,6 +193,7 @@ export interface SystemStatusResponse {
   recovery_plan?: RecoveryStrategyPlan;
   latest_policy_decision?: PolicyDecision;
   latest_execution_receipt?: ExecutionReceipt;
+  latest_verification?: VerificationReport | null;
   ai_reasoning: AIReasoningItem[];
   incident_logs: IncidentLogItem[];
   pending_approvals: PendingApproval[];
@@ -211,3 +212,24 @@ export interface ExecutionReceipt {
   state_changed: boolean;
   executed_at: string;
 }
+
+export interface VerificationCheck {
+  id: string;
+  name: string;
+  passed: boolean;
+  status_text: string;
+  details: string;
+}
+
+export interface VerificationReport {
+  verification_id: string;
+  incident_id: string | null;
+  execution_id: string | null;
+  action_executed: string;
+  recovery_status: "VERIFIED" | "FAILED" | "PARTIAL";
+  verified_at: string;
+  checks: VerificationCheck[];
+  summary: string;
+  reasoning: string[];
+}
+

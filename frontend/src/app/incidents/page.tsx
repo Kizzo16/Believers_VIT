@@ -7,10 +7,11 @@ import { EvidencePanel } from "@/components/sentinel/EvidencePanel";
 import { BlastRadiusPanel } from "@/components/sentinel/BlastRadiusPanel";
 import { RecoveryPlannerPanel } from "@/components/sentinel/RecoveryPlannerPanel";
 import { ControlledExecutorPanel } from "@/components/sentinel/ControlledExecutorPanel";
+import { RecoveryVerificationPanel } from "@/components/sentinel/RecoveryVerificationPanel";
 import { ShieldAlert, Activity, CheckCircle, Clock } from "lucide-react";
 
 export default function IncidentsPage() {
-  const { data } = useSentinel();
+  const { data, refresh } = useSentinel();
   const activeIncident = data?.active_incident || false;
   const currentIncident = data?.current_incident;
   const logs = data?.incident_logs || [];
@@ -62,6 +63,10 @@ export default function IncidentsPage() {
 
       {/* Module 9: Controlled Action Executor Panel */}
       <ControlledExecutorPanel />
+
+      {/* Module 10: Recovery Verification Engine Panel */}
+      <RecoveryVerificationPanel report={data?.latest_verification} onVerifyRequested={refresh} />
+
 
       {/* Incident Evidence & Diagnostic History (When Outage Active) */}
       {activeIncident && (

@@ -1,5 +1,6 @@
 import { executeToolWithGuardrail } from "../safety/policy-engine";
 import { incidentService } from "./incident.service";
+import { recoveryVerificationService } from "./recovery-verification.service";
 import { ExecutionReceipt } from "../types/sentinel";
 import { RingBuffer } from "../utils/ring-buffer";
 import { logger } from "../utils/logger";
@@ -52,8 +53,17 @@ class ActionExecutorService {
       executionResultStr = typeof result.result === "string" ? result.result : JSON.stringify(result.result);
       stateChanged = true;
 
+      // Update incident status to RECOVERING (not RESOLVED yet, pending Module 10 verification)
+      const currentIncident = incidentService.getCurrentIncident();
+      if (currentIncident && currentIncident.status !== "RESOLVED") {
+        incidentService.setCurrentIncident({
+          ...currentIncident,
+          status: "RECOVERING",
+        });
+      }
+
       incidentService.logEvent(
-        `⚡ [Module 9 Executor SUCCESS] Action '${toolName}' executed successfully. Result: ${executionResultStr}`
+        `⚡ [Module 9 Executor SUCCESS] Action '${toolName}' executed successfully. Transitioned incident to RECOVERING state pending Module 10 Verification.`
       );
     } else {
       executionStatus = "FAILED";
@@ -79,8 +89,18 @@ class ActionExecutorService {
 
     emitSentinelEvent("executor.receipt", receipt);
 
+    // If action succeeded, trigger Module 10 Recovery Verification Engine
+    if (executionStatus === "SUCCESS") {
+      try {
+        await recoveryVerificationService.verifyRecovery(null, receipt);
+      } catch (err) {
+        logger.error({ err }, "[Module 10 Recovery Verification Error]");
+      }
+    }
+
     return receipt;
   }
+
 
   public getLatestReceipt(): ExecutionReceipt | null {
     return this.latestReceipt;

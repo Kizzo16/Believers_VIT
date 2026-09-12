@@ -17,6 +17,7 @@ interface SentinelContextValue {
   pendingApproval: boolean;
   activeApprovalId: string | null;
   isSubmittingApproval: boolean;
+  refresh: () => Promise<void>;
   handleKillDatabase: () => Promise<void>;
   handleKillApi: () => Promise<void>;
   handleConfigFailure: () => Promise<void>;
@@ -29,6 +30,7 @@ interface SentinelContextValue {
   closeApprovalModal: () => void;
   setToast: (notice: ToastNotice | null) => void;
 }
+
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
@@ -59,34 +61,30 @@ export function SentinelProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, []);
 
+  const fetchStatus = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/status`, { cache: "no-store" });
+      if (res.ok) {
+        const json: SystemStatusResponse = await res.json();
+        setData(json);
+        setBackendOnline(true);
+      } else {
+        setBackendOnline(false);
+      }
+    } catch {
+      setBackendOnline(false);
+    }
+  };
+
   // Poll backend status every 2 seconds (Single Centralized Loop for all routes)
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/status`, { cache: "no-store" });
-        if (res.ok) {
-          const json: SystemStatusResponse = await res.json();
-          if (isMounted) {
-            setData(json);
-            setBackendOnline(true);
-          }
-        } else {
-          if (isMounted) setBackendOnline(false);
-        }
-      } catch {
-        if (isMounted) setBackendOnline(false);
-      }
-    };
-
     fetchStatus();
     const interval = setInterval(fetchStatus, 2000);
     return () => {
-      isMounted = false;
       clearInterval(interval);
     };
   }, []);
+
 
   // Auto-clear toast notice after 6 seconds
   useEffect(() => {
@@ -345,6 +343,7 @@ export function SentinelProvider({ children }: { children: React.ReactNode }) {
         pendingApproval,
         activeApprovalId,
         isSubmittingApproval,
+        refresh: fetchStatus,
         handleKillDatabase,
         handleKillApi,
         handleConfigFailure,
