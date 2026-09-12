@@ -8,6 +8,7 @@ import { observabilityRoutes } from "./routes/observability.routes";
 import { topologyRoutes } from "./routes/topology.routes";
 import { investigationRoutes } from "./routes/investigation.routes";
 import { blastRadiusRoutes } from "./routes/blast-radius.routes";
+import { recoveryRoutes } from "./routes/recovery.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -31,6 +32,7 @@ export function buildApp() {
   void app.register(topologyRoutes);
   void app.register(investigationRoutes);
   void app.register(blastRadiusRoutes);
+  void app.register(recoveryRoutes);
 
 
 

@@ -113,6 +113,7 @@ export interface SystemStatusResponse {
   latest_investigation?: InvestigationResult | null;
   observability?: ObservabilityEvidence;
   blast_radius?: BlastRadiusAnalysis;
+  recovery_plan?: RecoveryStrategyPlan;
   ai_reasoning: AIReasoningItem[];
   incident_logs: IncidentLogItem[];
   pending_approvals: PendingApproval[];
@@ -156,3 +157,27 @@ export interface BlastRadiusAnalysis {
   analyzed_at: string;
 }
 
+export interface RecoveryOption {
+  id: string;
+  rank: number;
+  action_name: string;
+  tool_name: string;
+  kwargs: Record<string, unknown>;
+  target_service: string;
+  confidence_pct: number;
+  risk_level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  estimated_time_seconds: number;
+  pros: string[];
+  cons: string[];
+  tradeoff_summary: string;
+}
+
+export interface RecoveryStrategyPlan {
+  incident_id: string | null;
+  root_cause: string;
+  blast_radius_level: string;
+  options: RecoveryOption[];
+  recommended_option: RecoveryOption | null;
+  selection_reasoning: string[];
+  generated_at: string;
+}
