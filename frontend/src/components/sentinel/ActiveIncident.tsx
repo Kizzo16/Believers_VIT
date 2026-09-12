@@ -46,14 +46,16 @@ export function ActiveIncident({ data }: ActiveIncidentProps) {
   }
 
   // Active Incident Workspace (Visual Focal Point)
-  const incidentId = currentIncident?.id || "INC-AUTO-DISRUPT";
+  const incidentId = currentIncident?.id || "INC-001";
+  const severity = currentIncident?.severity || "CRITICAL";
+  const affectedServices = currentIncident?.affected_services?.join(", ") || "sentinel-db, dummy-api";
+  const incidentStatus = currentIncident?.status || "INVESTIGATING";
   const detectedAt = currentIncident?.detected_at
     ? new Date(currentIncident.detected_at).toLocaleTimeString()
     : "Just now";
   const errorMsg =
     currentIncident?.error ||
     "HTTP 500: Database Connection Refused (TCP 5432 unreachable)";
-  const affectedService = "sentinel-db / dummy-api";
 
   return (
     <section className="bg-[#282830] rounded-3xl p-6 sm:p-8 border border-[#FF5C5C]/50 shadow-[0_20px_50px_-15px_rgba(255,92,92,0.25)] space-y-6">
@@ -68,8 +70,17 @@ export function ActiveIncident({ data }: ActiveIncidentProps) {
               <span className="text-xs font-bold uppercase tracking-wider text-[#FF5C5C]">
                 Active Outage
               </span>
-              <span className="text-xs font-mono-tech text-[#F5F5F5] bg-[#181820] px-2 py-0.5 rounded border border-[#303038]">
+              <span className="text-xs font-mono-tech text-[#F5F5F5] bg-[#181820] px-2.5 py-0.5 rounded border border-[#303038] font-bold">
                 {incidentId}
+              </span>
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                  severity === "CRITICAL"
+                    ? "bg-[#FF5C5C]/20 text-[#FF5C5C] border-[#FF5C5C]/40"
+                    : "bg-[#FFB800]/20 text-[#FFB800] border-[#FFB800]/40"
+                }`}
+              >
+                Severity: {severity}
               </span>
             </div>
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-[#F5F5F5] mt-0.5">
@@ -84,8 +95,8 @@ export function ActiveIncident({ data }: ActiveIncidentProps) {
             <span>Detected: {detectedAt}</span>
           </div>
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#FF5C5C] bg-[#FF5C5C]/10 border border-[#FF5C5C]/30 px-3 py-1.5 rounded-xl">
-            <Activity className="w-3.5 h-3.5" />
-            <span>Remediating</span>
+            <Activity className="w-3.5 h-3.5 animate-spin" />
+            <span>Status: {incidentStatus}</span>
           </div>
         </div>
       </div>
@@ -97,10 +108,10 @@ export function ActiveIncident({ data }: ActiveIncidentProps) {
           <div className="bg-[#181820] border border-[#303038] rounded-2xl p-4 space-y-3">
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#A0A0A8]">
-                Disruption Scope
+                Affected Services List
               </span>
-              <p className="text-sm font-medium text-[#F5F5F5] mt-0.5">
-                {affectedService}
+              <p className="text-sm font-medium text-[#F5F5F5] mt-0.5 font-mono">
+                {affectedServices}
               </p>
             </div>
             <div>
@@ -111,6 +122,7 @@ export function ActiveIncident({ data }: ActiveIncidentProps) {
                 {errorMsg}
               </p>
             </div>
+
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#A0A0A8]">
                 Autonomous SRE Recommendation

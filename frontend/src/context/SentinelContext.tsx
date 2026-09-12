@@ -18,6 +18,9 @@ interface SentinelContextValue {
   activeApprovalId: string | null;
   isSubmittingApproval: boolean;
   handleKillDatabase: () => Promise<void>;
+  handleKillApi: () => Promise<void>;
+  handleConfigFailure: () => Promise<void>;
+  handleResetEnv: () => Promise<void>;
   handleProposeDangerousAction: () => Promise<void>;
   handleTriggerMockIncident: () => Promise<void>;
   handleApproveAction: (approvalId?: string) => Promise<void>;
@@ -113,7 +116,71 @@ export function SentinelProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Chaos Action 2: Propose Dangerous Action (Guardrail Test)
+  // Chaos Action 2: Kill API
+  const handleKillApi = async () => {
+    setActionLoading("kill_api");
+    setActionNotice({
+      type: "warning",
+      text: "💥 API Failure Mode triggered. Demo REST API now returning HTTP 500 error status.",
+    });
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/chaos/kill-api`, {
+        method: "POST",
+      });
+      await res.json();
+    } catch (e: unknown) {
+      const err = e as Error;
+      setActionNotice({ type: "danger", text: `Failed to trigger API failure: ${err.message}` });
+    } finally {
+      setTimeout(() => setActionLoading(null), 700);
+    }
+  };
+
+  // Chaos Action 3: Config Failure
+  const handleConfigFailure = async () => {
+    setActionLoading("config_failure");
+    setActionNotice({
+      type: "warning",
+      text: "⚠️ Configuration Failure triggered. Connection parameters corrupted.",
+    });
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/chaos/config-failure`, {
+        method: "POST",
+      });
+      await res.json();
+    } catch (e: unknown) {
+      const err = e as Error;
+      setActionNotice({ type: "danger", text: `Failed to trigger config failure: ${err.message}` });
+    } finally {
+      setTimeout(() => setActionLoading(null), 700);
+    }
+  };
+
+  // Environment Reset
+  const handleResetEnv = async () => {
+    setActionLoading("reset_env");
+    setActionNotice({
+      type: "info",
+      text: "🔄 Resetting environment state, starting containers, and restoring normal config...",
+    });
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/chaos/reset`, {
+        method: "POST",
+      });
+      await res.json();
+      setActionNotice({
+        type: "success",
+        text: "✅ Environment reset to NORMAL. All services and databases operating normally.",
+      });
+    } catch (e: unknown) {
+      const err = e as Error;
+      setActionNotice({ type: "danger", text: `Reset environment error: ${err.message}` });
+    } finally {
+      setTimeout(() => setActionLoading(null), 700);
+    }
+  };
+
+  // Chaos Action: Propose Dangerous Action (Guardrail Test)
   const handleProposeDangerousAction = async () => {
     setActionLoading("propose_dangerous");
     setActionNotice({
@@ -146,7 +213,7 @@ export function SentinelProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Chaos Action 3: Trigger Mock Incident
+  // Chaos Action: Trigger Mock Incident
   const handleTriggerMockIncident = async () => {
     setActionLoading("mock_incident");
     setActionNotice({
@@ -279,6 +346,9 @@ export function SentinelProvider({ children }: { children: React.ReactNode }) {
         activeApprovalId,
         isSubmittingApproval,
         handleKillDatabase,
+        handleKillApi,
+        handleConfigFailure,
+        handleResetEnv,
         handleProposeDangerousAction,
         handleTriggerMockIncident,
         handleApproveAction,
@@ -292,6 +362,7 @@ export function SentinelProvider({ children }: { children: React.ReactNode }) {
     </SentinelContext.Provider>
   );
 }
+
 
 export function useSentinel() {
   const context = useContext(SentinelContext);

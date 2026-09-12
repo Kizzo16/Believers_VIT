@@ -1,8 +1,10 @@
 "use client";
 
 import React from "react";
+
 import { useSentinel } from "@/context/SentinelContext";
 import { FleetTopology } from "@/components/sentinel/FleetTopology";
+import { DependencyMap } from "@/components/sentinel/DependencyMap";
 import { Network, Server, ShieldCheck, Database, Cpu, CheckCircle2 } from "lucide-react";
 
 export default function FleetPage() {
@@ -34,8 +36,12 @@ export default function FleetPage() {
         </div>
       </div>
 
+      {/* Module 4: Controlled Service Dependency Map */}
+      <DependencyMap />
+
       {/* Main Interactive Fleet Topology Map */}
       <FleetTopology data={data} />
+
 
       {/* Detailed Node Telemetry & Environment Specs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

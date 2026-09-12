@@ -3,11 +3,15 @@
 import React from "react";
 import { useSentinel } from "@/context/SentinelContext";
 import { SimulationControls } from "@/components/sentinel/SimulationControls";
+import { DemoAppPanel } from "@/components/sentinel/DemoAppPanel";
 import { Zap, AlertTriangle, ShieldCheck, Flame, Info } from "lucide-react";
 
 export default function SimulationsPage() {
   const {
     handleKillDatabase,
+    handleKillApi,
+    handleConfigFailure,
+    handleResetEnv,
     handleProposeDangerousAction,
     handleTriggerMockIncident,
     actionLoading,
@@ -20,10 +24,10 @@ export default function SimulationsPage() {
         <div>
           <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#B6FF4A] mb-1">
             <Zap className="w-3.5 h-3.5" />
-            <span>Chaos Testing & Reliability Proofs</span>
+            <span>Module 1 — Failure Simulation & Recovery</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#F5F5F5]">
-            Simulations & Chaos Workspace
+            Demo Application & Failure Environment
           </h1>
           <p className="text-xs sm:text-sm text-[#A0A0A8] mt-1">
             Controlled fault injection to demonstrate autonomous failure detection, deterministic guardrails, and self-healing.
@@ -32,10 +36,13 @@ export default function SimulationsPage() {
 
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-[#B6FF4A]/15 text-[#B6FF4A] border border-[#B6FF4A]/30">
-            Simulation / Demonstration Workspace
+            Module 1 Environment
           </span>
         </div>
       </div>
+
+      {/* Demo Application Panel (Frontend -> Backend REST API -> PostgreSQL) */}
+      <DemoAppPanel />
 
       {/* Safety Banner */}
       <div className="bg-[#282830] rounded-2xl p-5 border border-[#303038] flex items-start gap-3.5">
@@ -53,10 +60,14 @@ export default function SimulationsPage() {
       {/* Primary Simulation Controls */}
       <SimulationControls
         onKillDatabase={handleKillDatabase}
+        onKillApi={handleKillApi}
+        onConfigFailure={handleConfigFailure}
+        onResetEnv={handleResetEnv}
         onProposeDangerous={handleProposeDangerousAction}
         onTriggerMock={handleTriggerMockIncident}
         loadingAction={actionLoading}
       />
+
 
       {/* Demonstration Scenario Guide */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">

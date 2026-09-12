@@ -1,7 +1,8 @@
 import { env } from "../config/env";
 import { ContainerService } from "./container.service";
 import { incidentService } from "./incident.service";
-import { callLlmSreAgent } from "../agent/agent";
+import { observabilityService } from "./observability.service";
+import { incidentDetectorService } from "./incident-detector.service";
 import { logger } from "../utils/logger";
 import { emitSentinelEvent } from "../realtime/socket";
 
@@ -48,6 +49,7 @@ export class HealthMonitorService {
   }
 
   private async checkHealth(): Promise<void> {
+    const startTime = Date.now();
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
@@ -57,15 +59,18 @@ export class HealthMonitorService {
       });
       clearTimeout(timeoutId);
 
+      const latencyMs = Date.now() - startTime;
       const statusCode = resp.status;
       const respText = await resp.text();
+
+      observabilityService.recordRequest(statusCode, latencyMs);
 
       incidentService.setLastPingTime(new Date().toISOString());
       incidentService.setLastPingCode(statusCode);
 
       // Check container level status non-blockingly
       const dbRunning = await ContainerService.checkContainerRunning("sentinel-db");
-      incidentService.setDatabaseStatus(dbRunning ? "UP" : "DOWN");
+      incidentService.setDatabaseStatus(dbRunning ? "UP" : statusCode === 200 ? "UP" : "DOWN");
 
       if (statusCode === 200) {
         incidentService.setDummyApiStatus("UP");
@@ -94,28 +99,15 @@ export class HealthMonitorService {
         incidentService.setDummyApiStatus("DOWN");
         incidentService.setDatabaseStatus("DOWN");
 
-        if (!incidentService.isActiveIncident()) {
-          incidentService.setActiveIncident(true);
-          const incidentId = `INC-${Math.floor(Date.now() / 1000)}`;
-          const incidentData = {
-            id: incidentId,
-            detected_at: new Date().toISOString(),
-            error: respText,
-            status: "INVESTIGATING",
-          };
-          incidentService.setCurrentIncident(incidentData);
-          incidentService.logEvent(
-            `⚠️ Health check returned HTTP ${statusCode} from ${env.DUMMY_API_URL}: ${respText}`,
-            "ERROR"
-          );
-
-          // Asynchronously trigger the autonomous agent
-          void callLlmSreAgent(incidentData);
-        }
+        // Module 3 Automated Incident Detection
+        incidentDetectorService.processEvidenceAndDetect();
       } else {
         incidentService.setDummyApiStatus(`STATUS_${statusCode}`);
       }
     } catch (exc: unknown) {
+      const latencyMs = Date.now() - startTime;
+      observabilityService.recordRequest(0, latencyMs);
+
       incidentService.setLastPingTime(new Date().toISOString());
       incidentService.setLastPingCode(0);
       incidentService.setDummyApiStatus("DOWN");
@@ -123,24 +115,11 @@ export class HealthMonitorService {
       const dbRunning = await ContainerService.checkContainerRunning("sentinel-db");
       incidentService.setDatabaseStatus(dbRunning ? "UP" : "DOWN");
 
-      if (!incidentService.isActiveIncident()) {
-        incidentService.setActiveIncident(true);
-        const incidentId = `INC-${Math.floor(Date.now() / 1000)}`;
-        const errDetail = exc instanceof Error ? exc.message : String(exc);
-        const incidentData = {
-          id: incidentId,
-          detected_at: new Date().toISOString(),
-          error: `Service unreachable: ${errDetail}`,
-          status: "INVESTIGATING",
-        };
-        incidentService.setCurrentIncident(incidentData);
-        incidentService.logEvent(`⚠️ Health ping connection failed: ${errDetail}`, "ERROR");
-
-        // Asynchronously trigger the autonomous agent
-        void callLlmSreAgent(incidentData);
-      }
+      // Module 3 Automated Incident Detection
+      incidentDetectorService.processEvidenceAndDetect();
     }
   }
 }
 
 export const healthMonitorService = new HealthMonitorService();
+

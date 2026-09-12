@@ -59,6 +59,20 @@ export class ContainerService {
     }
   }
 
+  static async startContainer(containerName: string = "sentinel-db"): Promise<string> {
+    if (!this.isAllowed(containerName)) {
+      return `Error executing docker start: Container '${containerName}' is not in the whitelist.`;
+    }
+    try {
+      await execFileAsync("docker", ["start", containerName], { timeout: 30000 });
+      return `Container '${containerName}' started successfully.`;
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, `Failed to start container '${containerName}'`);
+      return `Failed to start container '${containerName}': ${errorMsg}`;
+    }
+  }
+
   static async stopContainer(containerName: string = "sentinel-db"): Promise<{ stdout: string; stderr: string }> {
     if (!this.isAllowed(containerName)) {
       throw new Error(`Container '${containerName}' is not in the whitelist.`);
@@ -73,3 +87,4 @@ export class ContainerService {
     }
   }
 }
+

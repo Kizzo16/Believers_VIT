@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSentinel } from "@/context/SentinelContext";
 import { HeroStatus } from "@/components/sentinel/HeroStatus";
 import { LifecyclePipeline } from "@/components/sentinel/LifecyclePipeline";
+import { DemoAppPanel } from "@/components/sentinel/DemoAppPanel";
+import { ObservabilityPanel } from "@/components/sentinel/ObservabilityPanel";
 import {
   ShieldAlert,
   ArrowRight,
@@ -24,6 +26,14 @@ export default function OverviewPage() {
     <div className="space-y-10">
       {/* 1. Executive Hero & High-Level System Status */}
       <HeroStatus data={data} />
+
+      {/* Module 1: Demo Application Panel (Frontend -> Backend API -> PostgreSQL) */}
+      <DemoAppPanel />
+
+      {/* Module 2: Observability Engine Panel (Metrics, Latency, Error Rate, Logs) */}
+      <ObservabilityPanel />
+
+
 
       {/* 2. Active Outage Alert Banner (If Disruption Active) */}
       {activeIncident && (

@@ -4,6 +4,9 @@ import { logger } from "./utils/logger";
 import { statusRoutes } from "./routes/status.routes";
 import { chaosRoutes } from "./routes/chaos.routes";
 import { approvalRoutes } from "./routes/approval.routes";
+import { observabilityRoutes } from "./routes/observability.routes";
+import { topologyRoutes } from "./routes/topology.routes";
+import { investigationRoutes } from "./routes/investigation.routes";
 
 export function buildApp() {
   const app = Fastify({
@@ -23,6 +26,12 @@ export function buildApp() {
   void app.register(statusRoutes);
   void app.register(chaosRoutes);
   void app.register(approvalRoutes);
+  void app.register(observabilityRoutes);
+  void app.register(topologyRoutes);
+  void app.register(investigationRoutes);
+
+
+
 
   // Centralized Error Handling
   app.setErrorHandler((error: FastifyError, _request, reply) => {

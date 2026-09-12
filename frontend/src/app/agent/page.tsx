@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+
 import { useSentinel } from "@/context/SentinelContext";
 import { LifecyclePipeline } from "@/components/sentinel/LifecyclePipeline";
 import { AgentTrace } from "@/components/sentinel/AgentTrace";
+import { AiInvestigationPanel } from "@/components/sentinel/AiInvestigationPanel";
 import { Cpu, Terminal, Sparkles, BrainCircuit, Activity } from "lucide-react";
 
 export default function AgentPage() {
@@ -39,8 +41,12 @@ export default function AgentPage() {
         </div>
       </div>
 
+      {/* Module 5: AI Investigation & Root Cause Hypothesis */}
+      <AiInvestigationPanel />
+
       {/* Autonomous Incident Lifecycle Pipeline */}
       <div className="space-y-2">
+
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#A0A0A8]">
           <Activity className="w-3.5 h-3.5 text-[#00D068]" />
           <span>Execution Pipeline Progression</span>

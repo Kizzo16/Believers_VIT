@@ -69,6 +69,19 @@ class IncidentService {
     this.dummyApiStatus = status;
   }
 
+  setApiServiceStatus(status: ServiceStatus): void {
+    this.dummyApiStatus = status;
+  }
+
+  clearIncidents(): void {
+    this.activeIncident = false;
+    this.currentIncident = null;
+    this.systemHealth = "HEALTHY";
+    this.databaseStatus = "UP";
+    this.dummyApiStatus = "UP";
+  }
+
+
   getDatabaseStatus(): ServiceStatus {
     return this.databaseStatus;
   }

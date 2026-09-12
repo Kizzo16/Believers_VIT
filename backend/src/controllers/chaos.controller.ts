@@ -8,16 +8,90 @@ import { PolicyUpdateSchema } from "../safety/schemas";
 export async function killDbHandler(_req: FastifyRequest, reply: FastifyReply) {
   incidentService.logEvent("💥 [Chaos Engineering] Triggered: 'Kill Database' action invoked from UI");
 
-  const res = await ContainerService.stopContainer("sentinel-db");
+  try {
+    const res = await ContainerService.stopContainer("sentinel-db");
+    incidentService.setDatabaseStatus("DOWN");
+    incidentService.setSystemHealth("DEGRADED");
+    return reply.send({
+      status: "SUCCESS",
+      action: "kill_database",
+      container: "sentinel-db",
+      output: res.stdout,
+      message: "Database stopped. SRE Autonomous Agent will detect 500 error and initiate recovery.",
+    });
+  } catch {
+    // Also trigger dummy-api endpoint if docker stop unavailable or container inside network
+    try {
+      await fetch("http://localhost:8001/chaos/db-failure", { method: "POST" });
+    } catch {}
+    incidentService.setDatabaseStatus("DOWN");
+    incidentService.setSystemHealth("DEGRADED");
+    return reply.send({
+      status: "SUCCESS",
+      action: "kill_database",
+      message: "Database failure state triggered in demo environment.",
+    });
+  }
+}
+
+export async function killApiHandler(_req: FastifyRequest, reply: FastifyReply) {
+  incidentService.logEvent("💥 [Chaos Engineering] Triggered: 'API Failure' action invoked from UI");
+
+  try {
+    await fetch("http://localhost:8001/chaos/api-failure", { method: "POST" });
+  } catch {}
+
+  incidentService.setApiServiceStatus("DOWN");
+  incidentService.setSystemHealth("DEGRADED");
+
+  return reply.send({
+    status: "SUCCESS",
+    action: "kill_api",
+    message: "API Failure state triggered. REST API now returning HTTP 500 internal server errors.",
+  });
+}
+
+export async function configFailureHandler(_req: FastifyRequest, reply: FastifyReply) {
+  incidentService.logEvent("💥 [Chaos Engineering] Triggered: 'Configuration Failure' action invoked from UI");
+
+  try {
+    await fetch("http://localhost:8001/chaos/config-failure", { method: "POST" });
+  } catch {}
+
   incidentService.setDatabaseStatus("DOWN");
   incidentService.setSystemHealth("DEGRADED");
 
   return reply.send({
     status: "SUCCESS",
-    action: "kill_database",
-    container: "sentinel-db",
-    output: res.stdout,
-    message: "Database stopped. SRE Autonomous Agent will detect 500 error and initiate recovery.",
+    action: "config_failure",
+    message: "Configuration Failure triggered. Database connection parameters corrupted.",
+  });
+}
+
+export async function resetEnvironmentHandler(_req: FastifyRequest, reply: FastifyReply) {
+  incidentService.logEvent("🔄 [Chaos Engineering] Triggered: 'Reset Environment' action invoked from UI");
+
+  try {
+    await ContainerService.startContainer("sentinel-db");
+  } catch {}
+
+  try {
+    await ContainerService.startContainer("dummy-api");
+  } catch {}
+
+  try {
+    await fetch("http://localhost:8001/chaos/reset", { method: "POST" });
+  } catch {}
+
+  incidentService.setDatabaseStatus("HEALTHY");
+  incidentService.setApiServiceStatus("HEALTHY");
+  incidentService.setSystemHealth("HEALTHY");
+  incidentService.clearIncidents();
+
+  return reply.send({
+    status: "SUCCESS",
+    action: "reset_environment",
+    message: "Environment successfully reset to NORMAL state. All containers & services healthy.",
   });
 }
 
@@ -47,11 +121,18 @@ export async function triggerMockIncidentHandler(
   const action = req.query.action || "stop_db";
   if (action === "stop_db") {
     return killDbHandler(req, reply);
+  } else if (action === "kill_api") {
+    return killApiHandler(req, reply);
+  } else if (action === "config_failure") {
+    return configFailureHandler(req, reply);
+  } else if (action === "reset") {
+    return resetEnvironmentHandler(req, reply);
   } else if (action === "dangerous") {
     return proposeDangerousHandler(req, reply);
   }
   return reply.status(400).send({ error: "Invalid action" });
 }
+
 
 export async function getPoliciesHandler(_req: FastifyRequest, reply: FastifyReply) {
   return reply.send(loadPolicies());
